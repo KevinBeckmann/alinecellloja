@@ -25,7 +25,6 @@
         const analytics = getAnalytics(app);
         const db = getFirestore(app);
 
-        // Função para carregar pedidos
         async function carregarPedidos() {
             try {
                 const querySnapshot = await getDocs(collection(db, "pedidos"));
@@ -40,7 +39,6 @@
             }
         }
 
-        // Função para marcar pedido como atendido
         async function marcarAtendido(pedidoId) {
             try {
                 await updateDoc(doc(db, "pedidos", pedidoId), { status: "atendido" });
@@ -50,12 +48,10 @@
             }
         }
 
-        // Torne global para usar no JS
         window.carregarPedidos = carregarPedidos;
         window.marcarAtendido = marcarAtendido;
     </script>
     <style>
-        /* TODO: Cole aqui TODO o CSS do seu adm.html original (igual ao que você enviou) */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
 
         :root {
@@ -237,6 +233,24 @@
             background: #ff5555; color: #000; 
         }
         .pedido-status.atendido { background: var(--accent); }
+
+        /* --- NOVO: PROMOÇÃO ITEM --- */
+        .promo-item {
+            background: var(--bg-elev);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 14px;
+            display: grid; gap: 12px;
+        }
+        .promo-head {
+            display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+        }
+        .promo-preview { 
+            width: 100%; max-width: 200px; height: auto; 
+            border-radius: 8px; border: 1px solid #333; background: #fff; padding: 4px; 
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -290,6 +304,17 @@
           <div id="pedidosList"></div>
         </section>
 
+        <!-- NOVA SEÇÃO: GERENCIAR PROMOÇÕES -->
+        <section class="card">
+          <h2><i class="fa-solid fa-images"></i> Gerenciar Promoções</h2>
+          <div class="toolbar">
+            <button id="btnAddPromo"><i class="fa-solid fa-plus"></i> Adicionar</button>
+            <button id="btnSavePromo"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
+          </div>
+          <div id="promocoesList"></div>
+          <div class="small" style="text-align: center;">As promoções aparecem no carousel em scroll na loja.</div>
+        </section>
+
         <section class="card">
           <h2><i class="fa-solid fa-credit-card"></i> Pagamento</h2>
           <div class="field">
@@ -326,7 +351,7 @@
               <input id="fileImport" type="file" accept="application/json" style="display:none;">
             </label>
           </div>
-          <div class="small" style="text-align: center;">Salva produtos e configs em arquivo JSON.</div>
+          <div class="small" style="text-align: center;">Salva produtos, promoções e configs em arquivo JSON.</div>
         </section>
       </aside>
     </main>
@@ -368,7 +393,7 @@
     });
 
     // --- SISTEMA DO ADMIN ---
-    const LS_KEYS = { produtos: 'iplay.produtos', pagamento: 'iplay.pagamento' };
+    const LS_KEYS = { produtos: 'iplay.produtos', pagamento: 'iplay.pagamento', promocoes: 'iplay.promocoes' };
 
     const defaultProdutos = [
       { id: 1, nome: "iPhone 15 Pro Max", cat: "aparelhos", preco: 8299, desc: "1TB Titanium Natural", img: "https://images.unsplash.com/photo-1695822822491-d92cee704368?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.0.3", featured: false },
@@ -388,18 +413,31 @@
       whatsapp: ""
     };
 
+    const defaultPromocoes = [
+      "https://images.unsplash.com/photo-1695822822491-d92cee704368?w=600&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=500&q=80",
+      "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&w=500&q=80",
+      "https://images.unsplash.com/photo-1695822822491-d92cee704368?w=600&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=500&q=80",
+      "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&w=500&q=80"
+    ];
+
     let produtos = [];
     let pagamento = {};
+    let promocoes = [];
 
     function loadState() {
       try {
         const p = JSON.parse(localStorage.getItem(LS_KEYS.produtos) || 'null');
         const pay = JSON.parse(localStorage.getItem(LS_KEYS.pagamento) || 'null');
+        const promo = JSON.parse(localStorage.getItem(LS_KEYS.promocoes) || 'null');
         produtos = Array.isArray(p) && p.length ? p : defaultProdutos.slice();
         pagamento = pay && typeof pay === 'object' ? { ...defaultPagamento, ...pay } : { ...defaultPagamento };
+        promocoes = Array.isArray(promo) && promo.length ? promo : defaultPromocoes.slice();
       } catch {
         produtos = defaultProdutos.slice();
         pagamento = { ...defaultPagamento };
+        promocoes = defaultPromocoes.slice();
       }
     }
 
@@ -418,6 +456,13 @@
         localStorage.setItem(LS_KEYS.pagamento, JSON.stringify(pagamento));
         toast("Configurações salvas!");
       } catch (err) { alert('Erro ao salvar config.'); }
+    }
+
+    function savePromocoesToLS() {
+      try {
+        localStorage.setItem(LS_KEYS.promocoes, JSON.stringify(promocoes));
+        toast("Promoções salvas!");
+      } catch (err) { alert('Erro ao salvar promoções.'); }
     }
 
     function toast(msg) {
@@ -599,7 +644,49 @@
       }
     }
 
-    // --- NOVO: FUNÇÃO PARA RENDER PEDIDOS ---
+    // --- NOVO: RENDER PROMOÇÕES ---
+    const promocoesListEl = document.getElementById('promocoesList');
+
+    function renderPromocoesAdmin() {
+      promocoesListEl.innerHTML = '';
+      promocoes.forEach((p, idx) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'promo-item';
+        wrap.dataset.index = idx;
+
+        wrap.innerHTML = `
+          <div class="promo-head">
+            <strong>Promoção ${idx + 1}</strong>
+            <button class="danger" data-action="delPromo"><i class="fa-solid fa-trash"></i></button>
+          </div>
+          <div class="field">
+            <label>URL da Imagem</label>
+            <input data-field="url" type="url" value="${escapeAttr(p)}" placeholder="https://...">
+          </div>
+          <img class="promo-preview" src="${escapeAttr(p)}" alt="promo" ${p ? '' : 'style="display:none;"'}/>
+        `;
+
+        wrap.addEventListener('input', (e) => {
+          const field = e.target.dataset.field;
+          if (field === 'url') {
+            promocoes[idx] = e.target.value;
+            const prev = wrap.querySelector('.promo-preview');
+            prev.src = e.target.value;
+            prev.style.display = e.target.value ? 'block' : 'none';
+          }
+        });
+
+        wrap.querySelector('[data-action="delPromo"]').addEventListener('click', () => {
+          if (confirm('Deletar promoção?')) { promocoes.splice(idx, 1); renderPromocoesAdmin(); }
+        });
+
+        promocoesListEl.appendChild(wrap);
+      });
+      
+      if(promocoes.length === 0) promocoesListEl.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">Sem promoções. Adicione uma!</div>';
+    }
+
+    // --- NOVO: RENDER PEDIDOS ---
     const pedidosListEl = document.getElementById('pedidosList');
 
     function renderPedidos(pedidos) {
@@ -645,7 +732,6 @@
     document.getElementById('btnAdd').addEventListener('click', () => {
       produtos.push({ id: newId(), nome: 'Novo Item', cat: 'aparelhos', preco: 0, desc: '', img: '', featured: false });
       renderProdutosAdmin();
-      // Scroll to bottom
       setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 100);
     });
 
@@ -672,9 +758,19 @@
       renderPedidos(pedidos);
     });
 
+    // Novo botão para adicionar promoção
+    document.getElementById('btnAddPromo').addEventListener('click', () => {
+      promocoes.push('');
+      renderPromocoesAdmin();
+      setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 100);
+    });
+
+    // Novo botão para salvar promoções
+    document.getElementById('btnSavePromo').addEventListener('click', savePromocoesToLS);
+
     // Backup
     document.getElementById('btnExport').addEventListener('click', () => {
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({produtos, pagamento}));
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({produtos, pagamento, promocoes}));
       const a = document.createElement('a');
       a.href = dataStr; a.download = "backup_loja.json";
       a.click();
@@ -694,9 +790,12 @@
           document.getElementById('debito').value = pagamento.debito || '';
           document.getElementById('whatsapp').value = pagamento.whatsapp || '';
         }
+        if(json.promocoes) promocoes = json.promocoes;
         renderProdutosAdmin();
+        renderPromocoesAdmin();
         saveProdutosToLS();
         savePagamentoToLS();
+        savePromocoesToLS();
         alert('Backup restaurado com sucesso!');
       } catch { alert('Arquivo inválido.'); }
       e.target.value = '';
@@ -705,6 +804,7 @@
     // Init Logic
     loadState();
     renderProdutosAdmin();
+    renderPromocoesAdmin();
     document.getElementById('pix').value = pagamento.pix || '';
     document.getElementById('credito').value = pagamento.credito || '';
     document.getElementById('debito').value = pagamento.debito || '';
