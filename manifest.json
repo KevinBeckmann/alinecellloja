@@ -1,0 +1,19 @@
+{
+  "name": "iPlay Admin - Painel do Administrador",
+  "short_name": "iPlay Admin",
+  "description": "Gerencie produtos, promoções e pedidos da loja iPlay",
+  "start_url": "/adm.html",
+  "display": "standalone",
+  "background_color": "#08090b",
+  "theme_color": "#6eea70",
+  "orientation": "portrait",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
