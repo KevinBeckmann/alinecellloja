@@ -1,174 +1,243 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-  <title>iPlay Store - Painel do Administrador</title>
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <title>iPlay Store - Painel do Administrador</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getFirestore, collection, getDocs, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
 
-    :root {
-      --bg-body: #0b0c10;
-      --bg-card: #1a1c20;
-      --bg-elev: #1e2126;
-      --accent: #6eea70;
-      --text: #ffffff;
-      --text-dim: #a1a1a1;
-      --border: rgba(255,255,255,0.08);
-    }
+        const firebaseConfig = {
+            apiKey: "AIzaSyDZPIYOFtfmYEeeHGOCqzHsV1a206n0-cQ",
+            authDomain: "iplay-65220.firebaseapp.com",
+            projectId: "iplay-65220",
+            storageBucket: "iplay-65220.firebasestorage.app",
+            messagingSenderId: "264955612573",
+            appId: "1:264955612573:web:f5a8b2c548962f6b7d7374",
+            measurementId: "G-7MC7673WPH"
+        };
 
-    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-    
-    body {
-      font-family: 'Inter', sans-serif;
-      background: #08090b;
-      color: var(--text);
-      min-height: 100vh;
-      background-image:
-        radial-gradient(circle at 50% 0%, rgba(20,24,30,0.9) 0%, rgba(8,9,11,1) 80%),
-        url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-27-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm-24-4c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM0 10c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm77 3c.552 0 1-.448 1-1s-.448-1-1-1-1 .448-1 1 .448 1 1 1zM50 0c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zm35 77c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM98 40c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM14 74c2.761 0 5-2.239 5-5s-2.239-5-5-5-5 2.239-5 5 2.239 5 5 5zM62 8c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM85 62c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM47 54c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM28 89c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM78 4c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM38 36c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM52 18c3.314 0 6-2.686 6-6s-2.686-6-6-6-6 2.686-6 6 2.686 6 6 6zM25 64c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM90 43c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM16 56c3.314 0 6-2.686 6-6s-2.686-6-6-6-6 2.686-6 6 2.686 6 6 6zM37 46c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM7 24c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM21 54c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM32 40c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM41 84c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM58 78c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM75 14c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM66 66c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM3 50c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM19 80c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM33 2c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zM87 34c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM13 26c3.314 0 6-2.686 6-6s-2.686-6-6-6-6 2.686-6 6 2.686 6 6 6z' fill='%239C92AC' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E");
-      background-size: cover, 400px 400px;
-    }
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        const db = getFirestore(app);
 
-    /* --- LOGIN SCREEN --- */
-    #loginScreen {
-      position: fixed; top:0; left:0; width:100%; height:100%;
-      background: #08090b; z-index: 9999;
-      display: flex; justify-content: center; align-items: center; flex-direction: column;
-      padding: 20px;
-    }
-    .login-box {
-      background: var(--bg-card); padding: 30px; border-radius: 16px; border: 1px solid var(--border);
-      text-align: center; max-width: 400px; width: 100%;
-      box-shadow: 0 0 40px rgba(0,0,0,0.5);
-    }
-    .login-box h2 { margin-bottom: 20px; color: var(--accent); }
-    .login-box input { 
-      width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #333; 
-      background: #0b0c10; color: #fff; margin-bottom: 15px; font-size: 1rem;
-      text-align: center;
-    }
-    .login-box button { width: 100%; }
+        // Função para carregar pedidos
+        async function carregarPedidos() {
+            try {
+                const querySnapshot = await getDocs(collection(db, "pedidos"));
+                const pedidos = [];
+                querySnapshot.forEach((doc) => {
+                    pedidos.push({ id: doc.id, ...doc.data() });
+                });
+                return pedidos;
+            } catch (e) {
+                console.error("Erro ao carregar pedidos: ", e);
+                return [];
+            }
+        }
 
-    /* --- LAYOUT PRINCIPAL --- */
-    #mainContent { display: none; } /* Oculto até logar */
+        // Função para marcar pedido como atendido
+        async function marcarAtendido(pedidoId) {
+            try {
+                await updateDoc(doc(db, "pedidos", pedidoId), { status: "atendido" });
+                alert("Pedido marcado como atendido!");
+            } catch (e) {
+                console.error("Erro ao atualizar: ", e);
+            }
+        }
 
-    header {
-      position: sticky; top: 0; z-index: 100;
-      background: rgba(8, 9, 11, 0.95);
-      backdrop-filter: blur(10px);
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-    }
-    .header-container {
-      max-width: 1200px; margin: 0 auto; padding: 12px 20px;
-      display: flex; align-items: center; gap: 16px; justify-content: space-between;
-      flex-wrap: wrap;
-    }
-    .brand { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 250px; }
-    .logo {
-      width: 42px; height: 42px; flex-shrink: 0;
-    }
-    .title { font-weight: 700; font-size: 1.1rem; line-height: 1.2; }
-    .hint { color: var(--text-dim); font-size: 0.8rem; margin-top: 2px; }
+        // Torne global para usar no JS
+        window.carregarPedidos = carregarPedidos;
+        window.marcarAtendido = marcarAtendido;
+    </script>
+    <style>
+        /* TODO: Cole aqui TODO o CSS do seu adm.html original (igual ao que você enviou) */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
 
-    .container {
-      max-width: 1200px; margin: 20px auto; padding: 0 20px; display: grid; gap: 20px;
-      grid-template-columns: 1fr 350px;
-    }
-    
-    .card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 18px;
-      box-shadow: 0 10px 24px rgba(0,0,0,0.3);
-    }
-    .card h2 {
-      font-size: 1.05rem; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
-      color: #fff; font-weight: 700;
-    }
-    .muted { color: var(--text-dim); font-size: 0.92rem; }
+        :root {
+            --bg-body: #0b0c10;
+            --bg-card: #1a1c20;
+            --bg-elev: #1e2126;
+            --accent: #6eea70;
+            --text: #ffffff;
+            --text-dim: #a1a1a1;
+            --border: rgba(255,255,255,0.08);
+        }
 
-    .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-    button, .btn {
-      background: var(--accent); color: #000; border: none; border-radius: 8px;
-      padding: 12px 16px; font-weight: 700; cursor: pointer; font-size: 0.9rem;
-      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-      text-decoration: none; transition: 0.2s;
-    }
-    button:active, .btn:active { transform: scale(0.96); }
-    button.secondary { background: #2a2f35; color: #fff; border: 1px solid var(--border); }
-    button.danger { background: #ff5555; color: #000; }
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #08090b;
+            color: var(--text);
+            min-height: 100vh;
+            background-image:
+                radial-gradient(circle at 50% 0%, rgba(20,24,30,0.9) 0%, rgba(8,9,11,1) 80%),
+                url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-27-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm-24-4c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM0 10c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm77 3c.552 0 1-.448 1-1s-.448-1-1-1-1 .448-1 1 .448 1 1 1zM50 0c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zm35 77c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM98 40c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM14 74c2.761 0 5-2.239 5-5s-2.239-5-5-5-5 2.239-5 5 2.239 5 5 5zM62 8c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM85 62c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM47 54c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM28 89c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM78 4c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM38 36c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM52 18c3.314 0 6-2.686 6-6s-2.686-6-6-6-6 2.686-6 6 2.686 6 6 6zM25 64c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM90 43c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM16 56c3.314 0 6-2.686 6-6s-2.686-6-6-6-6 2.686-6 6 2.686 6 6 6zM37 46c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM7 24c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM21 54c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM32 40c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM41 84c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM58 78c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM75 14c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM66 66c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM3 50c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM19 80c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM33 2c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zM87 34c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM13 26c3.314 0 6-2.686 6-6s-2.686-6-6-6-6 2.686-6 6 2.686 6 6 6z' fill='%239C92AC' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E");
+            background-size: cover, 400px 400px;
+        }
 
-    .field { display: grid; gap: 6px; margin-bottom: 12px; }
-    .field label { color: #ccc; font-size: 0.85rem; }
-    .field input, .field select, .field textarea {
-      background: #0b0c10; border: 1px solid #333; color: #fff; border-radius: 8px;
-      padding: 12px; font-size: 1rem; width: 100%;
-    }
-    .two-cols { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
-    
-    /* PRODUTO ITEM */
-    .product-item {
-      background: var(--bg-elev);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 14px;
-      margin-bottom: 14px;
-      display: grid; gap: 12px;
-    }
-    .product-head {
-      display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
-    }
-    .head-title { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 200px; }
-    .head-actions { display: flex; gap: 6px; }
-    
-    .badge {
-      background: rgba(110,234,112,0.15);
-      border: 1px solid rgba(110,234,112,0.3);
-      color: var(--accent); font-weight: 700; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem;
-    }
-    
-    .product-grid {
-      display: grid; gap: 15px; grid-template-columns: 1.5fr 1fr; align-items: start;
-    }
-    .img-preview { 
-      width: 100%; max-width: 200px; height: auto; 
-      border-radius: 8px; border: 1px solid #333; background: #fff; padding: 4px; 
-      margin-top: 10px;
-    }
+        /* --- LOGIN SCREEN --- */
+        #loginScreen {
+            position: fixed; top:0; left:0; width:100%; height:100%;
+            background: #08090b; z-index: 9999;
+            display: flex; justify-content: center; align-items: center; flex-direction: column;
+            padding: 20px;
+        }
+        .login-box {
+            background: var(--bg-card); padding: 30px; border-radius: 16px; border: 1px solid var(--border);
+            text-align: center; max-width: 400px; width: 100%;
+            box-shadow: 0 0 40px rgba(0,0,0,0.5);
+        }
+        .login-box h2 { margin-bottom: 20px; color: var(--accent); }
+        .login-box input { 
+            width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #333; 
+            background: #0b0c10; color: #fff; margin-bottom: 15px; font-size: 1rem;
+            text-align: center;
+        }
+        .login-box button { width: 100%; }
 
-    .upload-row { display: grid; grid-template-columns: 1fr; gap: 8px; }
-    .upload-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 5px; }
-    .upload-actions .btn { padding: 8px 12px; font-size: 0.8rem; }
+        /* --- LAYOUT PRINCIPAL --- */
+        #mainContent { display: none; } /* Oculto até logar */
 
-    .aside .card { position: sticky; top: 94px; }
-    .small { font-size: 0.8rem; color: #888; margin-top: 5px; line-height: 1.4; }
+        header {
+            position: sticky; top: 0; z-index: 100;
+            background: rgba(8, 9, 11, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .header-container {
+            max-width: 1200px; margin: 0 auto; padding: 12px 20px;
+            display: flex; align-items: center; gap: 16px; justify-content: space-between;
+            flex-wrap: wrap;
+        }
+        .brand { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 250px; }
+        .logo {
+            width: 42px; height: 42px; flex-shrink: 0;
+        }
+        .title { font-weight: 700; font-size: 1.1rem; line-height: 1.2; }
+        .hint { color: var(--text-dim); font-size: 0.8rem; margin-top: 2px; }
 
-    .footer-note { text-align: center; color: #555; font-size: 0.8rem; padding: 20px 0 40px; }
+        .container {
+            max-width: 1200px; margin: 20px auto; padding: 0 20px; display: grid; gap: 20px;
+            grid-template-columns: 1fr 350px;
+        }
+        
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 18px;
+            box-shadow: 0 10px 24px rgba(0,0,0,0.3);
+        }
+        .card h2 {
+            font-size: 1.05rem; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+            color: #fff; font-weight: 700;
+        }
+        .muted { color: var(--text-dim); font-size: 0.92rem; }
 
-    /* --- RESPONSIVIDADE MOBILE --- */
-    @media (max-width: 900px) {
-      .container { grid-template-columns: 1fr; padding: 0 15px; margin-top: 15px; }
-      .product-grid { grid-template-columns: 1fr; }
-      .aside .card { position: static; margin-top: 20px; }
-      
-      /* Header mais compacto */
-      .header-container { padding: 10px 15px; flex-direction: column; align-items: stretch; gap: 12px; }
-      .header-container .btn { width: 100%; }
-      .title { font-size: 1rem; }
-      .hint { display: none; } /* Esconde texto de ajuda no mobile pra economizar espaço */
+        .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+        button, .btn {
+            background: var(--accent); color: #000; border: none; border-radius: 8px;
+            padding: 12px 16px; font-weight: 700; cursor: pointer; font-size: 0.9rem;
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            text-decoration: none; transition: 0.2s;
+        }
+        button:active, .btn:active { transform: scale(0.96); }
+        button.secondary { background: #2a2f35; color: #fff; border: 1px solid var(--border); }
+        button.danger { background: #ff5555; color: #000; }
 
-      /* Botões mais fáceis de tocar */
-      .toolbar button, .toolbar label.btn { flex: 1; padding: 14px; text-align: center; }
-      .head-actions button { padding: 8px 12px; }
-      
-      .two-cols { grid-template-columns: 1fr; }
-      .upload-actions .btn { width: 100%; }
-      .img-preview { max-width: 100%; height: 200px; object-fit: contain; background: #222; }
-    }
-  </style>
+        .field { display: grid; gap: 6px; margin-bottom: 12px; }
+        .field label { color: #ccc; font-size: 0.85rem; }
+        .field input, .field select, .field textarea {
+            background: #0b0c10; border: 1px solid #333; color: #fff; border-radius: 8px;
+            padding: 12px; font-size: 1rem; width: 100%;
+        }
+        .two-cols { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+        
+        /* PRODUTO ITEM */
+        .product-item {
+            background: var(--bg-elev);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 14px;
+            display: grid; gap: 12px;
+        }
+        .product-head {
+            display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+        }
+        .head-title { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 200px; }
+        .head-actions { display: flex; gap: 6px; }
+        
+        .badge {
+            background: rgba(110,234,112,0.15);
+            border: 1px solid rgba(110,234,112,0.3);
+            color: var(--accent); font-weight: 700; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem;
+        }
+        
+        .product-grid {
+            display: grid; gap: 15px; grid-template-columns: 1.5fr 1fr; align-items: start;
+        }
+        .img-preview { 
+            width: 100%; max-width: 200px; height: auto; 
+            border-radius: 8px; border: 1px solid #333; background: #fff; padding: 4px; 
+            margin-top: 10px;
+        }
+
+        .upload-row { display: grid; grid-template-columns: 1fr; gap: 8px; }
+        .upload-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 5px; }
+        .upload-actions .btn { padding: 8px 12px; font-size: 0.8rem; }
+
+        .aside .card { position: sticky; top: 94px; }
+        .small { font-size: 0.8rem; color: #888; margin-top: 5px; line-height: 1.4; }
+
+        .footer-note { text-align: center; color: #555; font-size: 0.8rem; padding: 20px 0 40px; }
+
+        /* --- RESPONSIVIDADE MOBILE --- */
+        @media (max-width: 900px) {
+            .container { grid-template-columns: 1fr; padding: 0 15px; margin-top: 15px; }
+            .product-grid { grid-template-columns: 1fr; }
+            .aside .card { position: static; margin-top: 20px; }
+            
+            /* Header mais compacto */
+            .header-container { padding: 10px 15px; flex-direction: column; align-items: stretch; gap: 12px; }
+            .header-container .btn { width: 100%; }
+            .title { font-size: 1rem; }
+            .hint { display: none; } /* Esconde texto de ajuda no mobile pra economizar espaço */
+
+            /* Botões mais fáceis de tocar */
+            .toolbar button, .toolbar label.btn { flex: 1; padding: 14px; text-align: center; }
+            .head-actions button { padding: 8px 12px; }
+            
+            .two-cols { grid-template-columns: 1fr; }
+            .upload-actions .btn { width: 100%; }
+            .img-preview { max-width: 100%; height: 200px; object-fit: contain; background: #222; }
+        }
+
+        /* --- NOVO: SEÇÃO DE PEDIDOS --- */
+        .pedido-item {
+            background: var(--bg-elev);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 14px;
+            display: grid; gap: 12px;
+        }
+        .pedido-head {
+            display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+        }
+        .pedido-info { font-size: 0.9rem; color: var(--text-dim); }
+        .pedido-status { 
+            padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;
+            background: #ff5555; color: #000; 
+        }
+        .pedido-status.atendido { background: var(--accent); }
+    </style>
 </head>
 <body>
 
@@ -212,6 +281,15 @@
       </section>
 
       <aside class="aside">
+        <!-- NOVA SEÇÃO: VER PEDIDOS -->
+        <section class="card">
+          <h2><i class="fa-solid fa-shopping-cart"></i> Ver Pedidos</h2>
+          <div class="toolbar">
+            <button id="btnLoadPedidos"><i class="fa-solid fa-sync"></i> Carregar Pedidos</button>
+          </div>
+          <div id="pedidosList"></div>
+        </section>
+
         <section class="card">
           <h2><i class="fa-solid fa-credit-card"></i> Pagamento</h2>
           <div class="field">
@@ -288,7 +366,6 @@
     document.getElementById('passwordInput').addEventListener('keypress', function (e) {
       if (e.key === 'Enter') checkLogin();
     });
-
 
     // --- SISTEMA DO ADMIN ---
     const LS_KEYS = { produtos: 'iplay.produtos', pagamento: 'iplay.pagamento' };
@@ -522,6 +599,48 @@
       }
     }
 
+    // --- NOVO: FUNÇÃO PARA RENDER PEDIDOS ---
+    const pedidosListEl = document.getElementById('pedidosList');
+
+    function renderPedidos(pedidos) {
+      pedidosListEl.innerHTML = '';
+      if (pedidos.length === 0) {
+        pedidosListEl.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">Nenhum pedido encontrado.</div>';
+        return;
+      }
+      pedidos.forEach((p) => {
+        const status = p.status || 'pendente';
+        const wrap = document.createElement('div');
+        wrap.className = 'pedido-item';
+
+        wrap.innerHTML = `
+          <div class="pedido-head">
+            <div>
+              <strong>${escapeHtml(p.nome || 'Cliente')}</strong>
+              <div class="pedido-info">${new Date(p.timestamp?.seconds * 1000 || p.timestamp).toLocaleString('pt-BR')}</div>
+            </div>
+            <div class="pedido-status ${status}">${status.toUpperCase()}</div>
+          </div>
+          <div>
+            <div><strong>Email:</strong> ${escapeHtml(p.email || '')}</div>
+            <div><strong>Telefone:</strong> ${escapeHtml(p.telefone || '')}</div>
+            <div><strong>Endereço:</strong> ${escapeHtml(p.endereco || '')}</div>
+            <div><strong>Pagamento:</strong> ${escapeHtml(p.pagamento || '')}</div>
+            <div><strong>Itens:</strong></div>
+            <ul style="margin:5px 0; padding-left:20px;">
+              ${p.itens?.map(i => `<li>${i.quantidade}x ${escapeHtml(i.nome)} - R$ ${(i.preco * i.quantidade).toLocaleString('pt-BR')}</li>`).join('') || '<li>Sem itens</li>'}
+            </ul>
+            <div><strong>Total:</strong> R$ ${(p.total || 0).toLocaleString('pt-BR')}</div>
+          </div>
+          <div style="margin-top:10px;">
+            <button class="secondary" onclick="marcarAtendido('${p.id}')"><i class="fa-solid fa-check"></i> Marcar Atendido</button>
+          </div>
+        `;
+
+        pedidosListEl.appendChild(wrap);
+      });
+    }
+
     // UI Buttons
     document.getElementById('btnAdd').addEventListener('click', () => {
       produtos.push({ id: newId(), nome: 'Novo Item', cat: 'aparelhos', preco: 0, desc: '', img: '', featured: false });
@@ -545,6 +664,12 @@
         renderProdutosAdmin();
         saveProdutosToLS();
       }
+    });
+
+    // Novo botão para carregar pedidos
+    document.getElementById('btnLoadPedidos').addEventListener('click', async () => {
+      const pedidos = await carregarPedidos();
+      renderPedidos(pedidos);
     });
 
     // Backup
