@@ -1,9 +1,10 @@
 const CACHE_NAME = 'iplay-admin-v1';
 const urlsToCache = [
-  '/adm.html',
+  '/index.html',
   '/manifest.json',
   '/icon-512.png',
-  // Adicione outros assets se precisar, ex: '/style.css' ou bibliotecas
+  '/imagem.logo.png',
+  // Adicione outros assets locais se precisar, ex: '/style.css' ou bibliotecas
 ];
 
 self.addEventListener('install', event => {
