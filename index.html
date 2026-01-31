@@ -44,7 +44,6 @@
                     if (token) {
                         console.log('Token FCM:', token);
                         localStorage.setItem('fcmToken', token);
-                        // Aqui você pode enviar o token para o servidor ou armazenar para envio de notificações
                     } else {
                         console.log('Não foi possível obter o token FCM.');
                     }
@@ -59,7 +58,6 @@
         // Escutar mensagens em foreground
         onMessage(messaging, (payload) => {
             console.log('Mensagem recebida em foreground:', payload);
-            // Mostrar notificação customizada
             new Notification(payload.notification.title, {
                 body: payload.notification.body,
                 icon: '/icon-512.png'
@@ -74,7 +72,6 @@
                     if (change.type === "added") {
                         const pedido = change.doc.data();
                         console.log('Novo pedido detectado:', pedido);
-                        // Enviar notificação push (simular via FCM - em produção, use Cloud Function)
                         sendNotificationToAdmin(`Novo pedido de ${pedido.nome}`, `Total: R$ ${pedido.total}`);
                     }
                 });
@@ -88,9 +85,7 @@
                 console.log('Token FCM não encontrado. Solicite permissão primeiro.');
                 return;
             }
-            // Simulação: Em produção, envie via Firebase Admin SDK ou Cloud Function
             console.log('Simulando envio de notificação:', { title, body });
-            // Para teste real, você precisaria de um backend. Por enquanto, mostra no console.
             alert(`Notificação simulada: ${title} - ${body}`);
         }
 
@@ -133,6 +128,7 @@
         }
     </script>
     <style>
+        /* ... (CSS igual ao original, mantido intacto) */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
 
         :root {
@@ -152,12 +148,13 @@
             background: #08090b;
             color: var(--text);
             min-height: 100vh;
-            background-image: 
+            background-image:
                 radial-gradient(circle at 50% 0%, rgba(20,24,30,0.9) 0%, rgba(8,9,11,1) 80%),
-                url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm56 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zM50 56c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zM21.955 61c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zM78.045 61c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zM75 39.5c2.485 0 4.5-2.015 4.5-4.5s-2.015-4.5-4.5-4.5-4.5 2.015-4.5 4.5 2.015 4.5 4.5 4.5zM25 39.5c2.485 0 4.5-2.015 4.5-4.5S27.485 30.5 25 30.5s-4.5 2.015-4.5 4.5 2.015 4.5 4.5 4.5zM50 22c2.485 0 4.5-2.015 4.5-4.5S52.485 13 50 13s-4.5 2.015-4.5 4.5S47.515 22 50 22z' fill='%23ffffff' fill-opacity='0.05'/%3E%3C/svg%3E");
+                url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm56 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zM50 56c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zM21.955 61c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zM78.045 61c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zM75 39.5c2.485 0 4.5-2.015 4.5-4.5s-2.015-4.5-4.5-4.5-4.5 2.015-4.5 4.5 2.015 4.5 4.5 4.5zM25 39.5c2.485 0 4.5-2.015 4.5-4.5S27.485 30.5 25 30.5s-4.5 2.015-4.5 4.5 2.015 4.5 4.5 4.5zM50 22c2.485 0 4.5-2.015 4.5-4.5S52.485 13 50 13s-4.5 2.015-4.5 4.5S47.515 22 50 22z' fill='%239C92AC' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E");
             background-size: cover, 400px 400px;
         }
 
+        /* ... (restante do CSS igual ao original) */
         /* --- LOGIN SCREEN --- */
         #loginScreen {
             position: fixed; top:0; left:0; width:100%; height:100%;
@@ -314,24 +311,6 @@
             background: #ff5555; color: #000; 
         }
         .pedido-status.atendido { background: var(--accent); }
-
-        /* --- NOVO: PROMOÇÃO ITEM --- */
-        .promo-item {
-            background: var(--bg-elev);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 14px;
-            margin-bottom: 14px;
-            display: grid; gap: 12px;
-        }
-        .promo-head {
-            display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
-        }
-        .promo-preview { 
-            width: 100%; max-width: 200px; height: auto; 
-            border-radius: 8px; border: 1px solid #333; background: #fff; padding: 4px; 
-            margin-top: 10px;
-        }
     </style>
 </head>
 <body>
@@ -385,17 +364,6 @@
           <div id="pedidosList"></div>
         </section>
 
-        <!-- NOVA SEÇÃO: GERENCIAR PROMOÇÕES -->
-        <section class="card">
-          <h2><i class="fa-solid fa-images"></i> Gerenciar Promoções</h2>
-          <div class="toolbar">
-            <button id="btnAddPromo"><i class="fa-solid fa-plus"></i> Adicionar</button>
-            <button id="btnSavePromo"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
-          </div>
-          <div id="promocoesList"></div>
-          <div class="small" style="text-align: center;">As promoções aparecem no carousel em scroll na loja.</div>
-        </section>
-
         <section class="card">
           <h2><i class="fa-solid fa-credit-card"></i> Pagamento</h2>
           <div class="field">
@@ -423,6 +391,7 @@
           </div>
         </section>
 
+        <!-- NOVA SEÇÃO: NOTIFICAÇÕES PUSH -->
         <section class="card" style="margin-top:14px;">
           <h2><i class="fa-solid fa-bell"></i> Notificações Push</h2>
           <div class="toolbar">
@@ -440,7 +409,7 @@
               <input id="fileImport" type="file" accept="application/json" style="display:none;">
             </label>
           </div>
-          <div class="small" style="text-align: center;">Salva produtos, promoções e configs em arquivo JSON.</div>
+          <div class="small" style="text-align: center;">Salva produtos e configs em arquivo JSON.</div>
         </section>
       </aside>
     </main>
@@ -482,10 +451,10 @@
     });
 
     // --- SISTEMA DO ADMIN ---
-    const LS_KEYS = { produtos: 'iplay.produtos', pagamento: 'iplay.pagamento', promocoes: 'iplay.promocoes' };
+    const LS_KEYS = { produtos: 'iplay.produtos', pagamento: 'iplay.pagamento' };
 
     const defaultProdutos = [
-      { id: 1, nome: "iPhone 15 Pro Max", cat: "aparelhos", preco: 8299, desc: "1TB Titanium Natural", img: "https://images.unsplash.com/photo-1695822822491-d92cee704368?w=600&auto=format&fit=crop&q=80", featured: false },
+      { id: 1, nome: "iPhone 15 Pro Max", cat: "aparelhos", preco: 8299, desc: "1TB Titanium Natural", img: "https://images.unsplash.com/photo-1695822822491-d92cee704368?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.0.3", featured: false },
       { id: 2, nome: "MacBook Pro M3", cat: "aparelhos", preco: 12599, desc: "512GB Space Black", img: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=500&q=80", featured: false },
       { id: 3, nome: "MacBook Pro 16\"", cat: "aparelhos", preco: 14999, desc: "1TB Silver M3 Max", img: "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&w=500&q=80", featured: false },
       { id: 4, nome: "AirPods Pro 2", cat: "fones", preco: 1899, desc: "USB-C MagSafe Case", img: "https://images.unsplash.com/photo-1588156979435-379b9d802b74?auto=format&fit=crop&w=400&q=80", featured: false },
@@ -502,31 +471,18 @@
       whatsapp: ""
     };
 
-    const defaultPromocoes = [
-      "https://images.unsplash.com/photo-1695822822491-d92cee704368?w=600&auto=format&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=500&q=80",
-      "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&w=500&q=80",
-      "https://images.unsplash.com/photo-1695822822491-d92cee704368?w=600&auto=format&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=500&q=80",
-      "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&w=500&q=80"
-    ];
-
     let produtos = [];
     let pagamento = {};
-    let promocoes = [];
 
     function loadState() {
       try {
         const p = JSON.parse(localStorage.getItem(LS_KEYS.produtos) || 'null');
         const pay = JSON.parse(localStorage.getItem(LS_KEYS.pagamento) || 'null');
-        const promo = JSON.parse(localStorage.getItem(LS_KEYS.promocoes) || 'null');
         produtos = Array.isArray(p) && p.length ? p : defaultProdutos.slice();
         pagamento = pay && typeof pay === 'object' ? { ...defaultPagamento, ...pay } : { ...defaultPagamento };
-        promocoes = Array.isArray(promo) && promo.length ? promo : defaultPromocoes.slice();
       } catch {
         produtos = defaultProdutos.slice();
         pagamento = { ...defaultPagamento };
-        promocoes = defaultPromocoes.slice();
       }
     }
 
@@ -547,17 +503,10 @@
       } catch (err) { alert('Erro ao salvar config.'); }
     }
 
-    function savePromocoesToLS() {
-      try {
-        localStorage.setItem(LS_KEYS.promocoes, JSON.stringify(promocoes));
-        toast("Promoções salvas!");
-      } catch (err) { alert('Erro ao salvar promoções.'); }
-    }
-
     function toast(msg) {
       const t = document.createElement('div');
       t.textContent = msg;
-      t.style.cssText = "position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.9); border:1px solid #6eea70; color:#fff; padding:12px 20px; border-radius:30px; font-size:14px; font-weight:700; z-index:10000;";
+      t.style.cssText = "position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.9); border:1px solid #6eea70; color:#fff; padding:12px 20px; border-radius:30px; z-index:10000;";
       document.body.appendChild(t);
       setTimeout(() => t.remove(), 2000);
     }
@@ -733,49 +682,7 @@
       }
     }
 
-    // --- NOVO: RENDER PROMOÇÕES ---
-    const promocoesListEl = document.getElementById('promocoesList');
-
-    function renderPromocoesAdmin() {
-      promocoesListEl.innerHTML = '';
-      promocoes.forEach((p, idx) => {
-        const wrap = document.createElement('div');
-        wrap.className = 'promo-item';
-        wrap.dataset.index = idx;
-
-        wrap.innerHTML = `
-          <div class="promo-head">
-            <strong>Promoção ${idx + 1}</strong>
-            <button class="danger" data-action="delPromo"><i class="fa-solid fa-trash"></i></button>
-          </div>
-          <div class="field">
-            <label>URL da Imagem</label>
-            <input data-field="url" type="url" value="${escapeAttr(p)}" placeholder="https://...">
-          </div>
-          <img class="promo-preview" src="${escapeAttr(p)}" alt="promo" ${p ? '' : 'style="display:none;"'}/>
-        `;
-
-        wrap.addEventListener('input', (e) => {
-          const field = e.target.dataset.field;
-          if (field === 'url') {
-            promocoes[idx] = e.target.value;
-            const prev = wrap.querySelector('.promo-preview');
-            prev.src = e.target.value;
-            prev.style.display = e.target.value ? 'block' : 'none';
-          }
-        });
-
-        wrap.querySelector('[data-action="delPromo"]').addEventListener('click', () => {
-          if (confirm('Deletar promoção?')) { promocoes.splice(idx, 1); renderPromocoesAdmin(); }
-        });
-
-        promocoesListEl.appendChild(wrap);
-      });
-      
-      if(promocoes.length === 0) promocoesListEl.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">Sem promoções. Adicione uma!</div>';
-    }
-
-    // --- NOVO: RENDER PEDIDOS ---
+    // --- NOVO: FUNÇÃO PARA RENDER PEDIDOS ---
     const pedidosListEl = document.getElementById('pedidosList');
 
     function renderPedidos(pedidos) {
@@ -821,6 +728,7 @@
     document.getElementById('btnAdd').addEventListener('click', () => {
       produtos.push({ id: newId(), nome: 'Novo Item', cat: 'aparelhos', preco: 0, desc: '', img: '', featured: false });
       renderProdutosAdmin();
+      // Scroll to bottom
       setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 100);
     });
 
@@ -847,16 +755,6 @@
       renderPedidos(pedidos);
     });
 
-    // Novo botão para adicionar promoção
-    document.getElementById('btnAddPromo').addEventListener('click', () => {
-      promocoes.push('');
-      renderPromocoesAdmin();
-      setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 100);
-    });
-
-    // Novo botão para salvar promoções
-    document.getElementById('btnSavePromo').addEventListener('click', savePromocoesToLS);
-
     // Novo botão para solicitar permissão de notificações
     document.getElementById('btnRequestPerm').addEventListener('click', requestNotificationPermission);
 
@@ -865,7 +763,7 @@
 
     // Backup
     document.getElementById('btnExport').addEventListener('click', () => {
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({produtos, pagamento, promocoes}));
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({produtos, pagamento}));
       const a = document.createElement('a');
       a.href = dataStr; a.download = "backup_loja.json";
       a.click();
@@ -885,12 +783,9 @@
           document.getElementById('debito').value = pagamento.debito || '';
           document.getElementById('whatsapp').value = pagamento.whatsapp || '';
         }
-        if(json.promocoes) promocoes = json.promocoes;
         renderProdutosAdmin();
-        renderPromocoesAdmin();
         saveProdutosToLS();
         savePagamentoToLS();
-        savePromocoesToLS();
         alert('Backup restaurado com sucesso!');
       } catch { alert('Arquivo inválido.'); }
       e.target.value = '';
@@ -899,7 +794,6 @@
     // Init Logic
     loadState();
     renderProdutosAdmin();
-    renderPromocoesAdmin();
     document.getElementById('pix').value = pagamento.pix || '';
     document.getElementById('credito').value = pagamento.credito || '';
     document.getElementById('debito').value = pagamento.debito || '';
