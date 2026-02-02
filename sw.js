@@ -1,5 +1,5 @@
-importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
-importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js');
+importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js');
 
 const firebaseConfig = {
   apiKey: "AIzaSyDZPIYOFtfmYEeeHGOCqzHsV1a206n0-cQ",
@@ -14,49 +14,48 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
-// Lidar com mensagens em background
+// Push em background
 messaging.onBackgroundMessage((payload) => {
   console.log('Mensagem recebida em background:', payload);
-  const notificationTitle = payload.notification.title;
+
+  const notificationTitle = payload?.notification?.title || 'iPlay Admin';
   const notificationOptions = {
-    body: payload.notification.body,
-    icon: '/icon-512.png'
+    body: payload?.notification?.body || '',
+    icon: '/Admin-Iplay/icon-512.png'
   };
+
   self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
-const CACHE_NAME = 'iplay-admin-v1';
+// Cache offline (corrigido para /Admin-Iplay/)
+const CACHE_NAME = 'iplay-admin-v2';
+const BASE = '/Admin-Iplay';
 const urlsToCache = [
-  '/index.html',
-  '/manifest.json',
-  '/icon-512.png',
-  '/imagem.logo.png',
-  '/apple-touch-icon.png'
+  `${BASE}/`,
+  `${BASE}/index.html`,
+  `${BASE}/manifest.json`,
+  `${BASE}/icon-512.png`,
+  `${BASE}/imagem.logo.png`,
+  `${BASE}/apple-touch-icon.png`
 ];
 
-self.addEventListener('install', event => {
+self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(urlsToCache))
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(urlsToCache))
   );
 });
 
-self.addEventListener('fetch', event => {
+self.addEventListener('fetch', (event) => {
   event.respondWith(
-    caches.match(event.request)
-      .then(response => response || fetch(event.request))
+    caches.match(event.request).then((response) => response || fetch(event.request))
   );
 });
 
-self.addEventListener('activate', event => {
+self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then(cacheNames =>
+    caches.keys().then((cacheNames) =>
       Promise.all(
-        cacheNames.map(cache => {
-          if (cache !== CACHE_NAME) {
-            return caches.delete(cache);
-          }
-        })
+        cacheNames.map((cache) => (cache !== CACHE_NAME ? caches.delete(cache) : null))
       )
     )
   );
