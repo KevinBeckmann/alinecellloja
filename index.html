@@ -17,7 +17,7 @@
     <!-- Firebase SDK (Firestore) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, collection, getDocs, updateDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, collection, getDocs, updateDoc, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
 
         const firebaseConfig = {
@@ -72,6 +72,23 @@
                 console.error("Erro ao atualizar: ", e);
             }
         }
+        // Função para Excluir Pedido
+        async function excluirPedido(pedidoId) {
+            if(confirm("ATENÇÃO: Tem certeza que deseja apagar este pedido permanentemente?")) {
+                try {
+                    await deleteDoc(doc(db, "pedidos", pedidoId));
+                    alert("Pedido excluído!");
+                    // Recarrega a lista se a função estiver disponível na janela
+                    document.getElementById('btnLoadPedidos').click();
+                } catch (e) {
+                    console.error("Erro ao excluir: ", e);
+                    alert("Erro ao excluir. Verifique o console.");
+                }
+            }
+        }
+
+        // Disponibiliza para o HTML
+        window.excluirPedido = excluirPedido;
 
         // Torne global
         window.carregarPedidos = carregarPedidos;
@@ -881,8 +898,9 @@
       return new Date(ms).toLocaleString('pt-BR');
     }
 
-    function renderPedidos(pedidos) {
+       function renderPedidos(pedidos) {
       pedidosListEl.innerHTML = '';
+      
       if (!pedidos || pedidos.length === 0) {
         pedidosListEl.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">Nenhuma compra encontrada.</div>';
         return;
@@ -890,41 +908,82 @@
 
       pedidos.forEach((p) => {
         const status = (p.status || 'pendente').toLowerCase();
+        
+        // Formatação de Data Melhorada
+        let dataFormatada = "Data desconhecida";
+        if (p.timestamp) {
+            const dateObj = p.timestamp.seconds ? new Date(p.timestamp.seconds * 1000) : new Date(p.timestamp);
+            const dia = String(dateObj.getDate()).padStart(2, '0');
+            const mes = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const ano = dateObj.getFullYear();
+            const hora = String(dateObj.getHours()).padStart(2, '0');
+            const min = String(dateObj.getMinutes()).padStart(2, '0');
+            dataFormatada = `${dia}/${mes}/${ano} às ${hora}:${min}`;
+        }
+
         const wrap = document.createElement('div');
         wrap.className = 'pedido-item';
+        
+        // Estilo condicional para borda
+        const bordaCor = status === 'atendido' ? 'var(--accent)' : '#ffb700';
+        wrap.style.borderLeft = `4px solid ${bordaCor}`;
 
         const itensHtml = Array.isArray(p.itens) && p.itens.length
           ? p.itens.map(i => {
               const q = Number(i.quantidade) || 0;
               const preco = Number(i.preco) || 0;
               const nome = escapeHtml(i.nome || '');
-              return `<li>${q}x ${nome} — ${fmtMoney(preco * q)}</li>`;
+              return `<div style="display:flex; justify-content:space-between; border-bottom:1px solid #333; padding:4px 0;">
+                        <span>${q}x ${nome}</span>
+                        <span>${fmtMoney(preco * q)}</span>
+                      </div>`;
             }).join('')
-          : '<li>Sem itens</li>';
+          : '<div>Sem itens</div>';
 
         wrap.innerHTML = `
-          <div class="pedido-head">
+          <div class="pedido-head" style="margin-bottom:10px;">
             <div>
-              <strong>${escapeHtml(p.nome || 'Cliente')}</strong>
-              <div class="pedido-info">${escapeHtml(fmtDate(p.timestamp) || '')}</div>
-              <div class="pedido-info"><span class="badge">ID:</span> ${escapeHtml(p.id || '')}</div>
+              <strong style="font-size:1.1rem; color:#fff;">${escapeHtml(p.nome || 'Cliente')}</strong>
+              <div style="font-size:0.8rem; color:#888;">📅 ${dataFormatada}</div>
+              <div style="font-size:0.75rem; color:#666; margin-top:2px;">ID: ${escapeHtml(p.id)}</div>
             </div>
-            <div class="pedido-status ${status}">${escapeHtml(status.toUpperCase())}</div>
+            <div class="pedido-status ${status}" style="height:fit-content;">${escapeHtml(status.toUpperCase())}</div>
           </div>
 
-          <div style="display:grid; gap:6px;">
-            <div><strong>Email:</strong> ${escapeHtml(p.email || '')}</div>
-            <div><strong>Telefone:</strong> ${escapeHtml(p.telefone || '')}</div>
-            <div><strong>Endereço:</strong> ${escapeHtml(p.endereco || '')}</div>
-            <div><strong>Pagamento:</strong> ${escapeHtml(p.pagamento || '')}</div>
-            <div><strong>Itens:</strong></div>
-            <ul style="margin:5px 0; padding-left:20px;">${itensHtml}</ul>
-            <div><strong>Total:</strong> ${fmtMoney(p.total)}</div>
+          <div style="background:rgba(0,0,0,0.2); padding:10px; border-radius:8px; margin-bottom:10px;">
+            <div style="color:#ccc; font-size:0.9rem; margin-bottom:4px;"><i class="fa-solid fa-envelope"></i> ${escapeHtml(p.email || '-')}</div>
+            <div style="color:#ccc; font-size:0.9rem; margin-bottom:4px;"><i class="fa-brands fa-whatsapp"></i> ${escapeHtml(p.telefone || '-')}</div>
+            <div style="color:#ccc; font-size:0.9rem;"><i class="fa-solid fa-location-dot"></i> ${escapeHtml(p.endereco || '-')}</div>
           </div>
 
-          <div style="margin-top:10px;">
-            <button class="secondary" type="button" onclick="marcarAtendido('${escapeAttr(p.id)}')">
-              <i class="fa-solid fa-check"></i> Marcar Atendido
+          <div style="margin-bottom:10px;">
+            <strong style="color:var(--accent); font-size:0.9rem;">ITENS DO PEDIDO:</strong>
+            <div style="font-size:0.9rem; color:#ddd; margin-top:5px;">
+                ${itensHtml}
+            </div>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; background:#000; padding:10px; border-radius:6px; margin-bottom:12px;">
+            <span style="color:#888;">Frete: ${p.frete_tipo || ''} (${fmtMoney(p.frete)})</span>
+            <span style="font-size:1.1rem; font-weight:bold; color:var(--accent);">Total: ${fmtMoney(p.total)}</span>
+          </div>
+          
+          <div style="background:#222; padding:8px; border-radius:6px; font-size:0.85rem; color:#aaa; margin-bottom:15px; text-align:center;">
+            Método de Pagamento: <strong style="color:#fff;">${escapeHtml(p.pagamento || '')}</strong>
+          </div>
+
+          <div style="display:flex; gap:10px;">
+            ${status !== 'atendido' ? 
+                `<button class="secondary" style="flex:1; background:var(--accent); color:#000;" onclick="marcarAtendido('${escapeAttr(p.id)}')">
+                    <i class="fa-solid fa-check"></i> Finalizar
+                 </button>` : 
+                `<button class="secondary" style="flex:1; opacity:0.5; cursor:not-allowed;" disabled>
+                    <i class="fa-solid fa-check-double"></i> Concluído
+                 </button>`
+            }
+            
+            <button class="danger" style="width:auto; padding:0 15px;" onclick="excluirPedido('${escapeAttr(p.id)}')">
+                <i class="fa-solid fa-trash"></i>
             </button>
           </div>
         `;
