@@ -372,20 +372,14 @@
           <div class="small" style="text-align:center;">Salva em <b>localStorage</b> na chave <code>iplay.promocoes</code></div>
         </section>
 
-        <section class="card" style="margin-top:14px;">
+                <section class="card" style="margin-top:14px;">
           <h2><i class="fa-solid fa-credit-card"></i> Pagamento</h2>
           <div class="field">
-            <label for="pix">PIX (Copia e Cola)</label>
-            <textarea id="pix" rows="4" placeholder="Cole o código PIX aqui..."></textarea>
+            <label for="credito" style="color:var(--accent);">Link de Pagamento (Mercado Pago)</label>
+            <input id="credito" type="url" placeholder="Cole aqui seu link de pagamento...">
+            <small style="color:#777; font-size:0.75rem;">Este link único será usado para todos os pedidos.</small>
           </div>
-          <div class="field">
-            <label for="credito">Link Cartão de Crédito</label>
-            <input id="credito" type="url" placeholder="https://...">
-          </div>
-          <div class="field">
-            <label for="debito">Link Cartão de Débito</label>
-            <input id="debito" type="url" placeholder="https://...">
-          </div>
+          <!-- O campo PIX e Débito foram removidos para simplificar -->
         </section>
 
         <section class="card" style="margin-top:14px;">
@@ -526,10 +520,8 @@
       { id: 8, nome: "HomePod Mini", cat: "aparelhos", preco: 799, desc: "Smart Speaker White", img: "https://images.unsplash.com/photo-1596558450255-7c0b7be9d56a?auto=format&fit=crop&w=400&q=80", featured: false }
     ];
 
-    const defaultPagamento = {
-      pix: "COLOQUE_AQUI_SEU_PIX_COPIA_E_COLA_OU_LINK",
-      credito: "https://SEU-BANCO-OU-GATEWAY.com/link-pagamento-cartao-credito",
-      debito: "https://SEU-BANCO-OU-GATEWAY.com/link-pagamento-cartao-debito",
+       const defaultPagamento = {
+      credito: "", // Agora usamos apenas este campo para o Link Geral
       whatsapp: ""
     };
 
@@ -952,9 +944,8 @@
     renderProdutosAdmin();
     renderPromocoesAdmin();
 
-    document.getElementById('pix').value = pagamento.pix || '';
+        // Apenas Link de Crédito (Geral) e WhatsApp
     document.getElementById('credito').value = pagamento.credito || '';
-    document.getElementById('debito').value = pagamento.debito || '';
     document.getElementById('whatsapp').value = pagamento.whatsapp || '';
 
     // (opcional) auto-carregar compras ao abrir
@@ -979,11 +970,15 @@
       }
     });
 
-    document.getElementById('btnSavePay').addEventListener('click', () => {
-      pagamento.pix = document.getElementById('pix').value;
+        document.getElementById('btnSavePay').addEventListener('click', () => {
+      // Simplificado: Salva apenas o Link Único e o WhatsApp
       pagamento.credito = document.getElementById('credito').value;
-      pagamento.debito = document.getElementById('debito').value;
       pagamento.whatsapp = document.getElementById('whatsapp').value.replace(/\D/g,'');
+      
+      // Limpa os campos antigos para não ocupar espaço
+      delete pagamento.pix;
+      delete pagamento.debito;
+
       savePagamentoToLS();
     });
 
