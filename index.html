@@ -1124,6 +1124,159 @@
       }
       e.target.value = '';
     });
+                </div>
+
+          <div style="display:flex; gap:10px; margin-top:10px;">
+            <button class="secondary" style="flex:1;" onclick="alternarStatus('${p.id}', '${status}')">
+              ${status === 'pendente' ? '<i class="fa-solid fa-check"></i> Marcar Atendido' : '<i class="fa-solid fa-clock"></i> Marcar Pendente'}
+            </button>
+            <button class="danger" style="width:50px;" onclick="deletarPedido('${p.id}')">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
+        `;
+        pedidosListEl.appendChild(wrap);
+      });
+    }
+
+    // --- AÇÕES DOS PEDIDOS ---
+    window.alternarStatus = async function(id, statusAtual) {
+      if(!confirm('Alterar status do pedido?')) return;
+      try {
+        const novo = statusAtual === 'pendente' ? 'atendido' : 'pendente';
+        await window.atualizarStatusFirebase(id, novo);
+        toast('Status atualizado!');
+        carregarPedidosNaTela(); // Recarrega a lista
+      } catch(e) { console.error(e); }
+    };
+
+    window.deletarPedido = async function(id) {
+      if(!confirm('Tem certeza? Isso apagará o pedido permanentemente.')) return;
+      try {
+        await window.excluirPedidoFirebase(id);
+        toast('Pedido excluído.');
+        carregarPedidosNaTela();
+      } catch(e) { console.error(e); }
+    };
+
+    async function carregarPedidosNaTela() {
+        const btn = document.getElementById('btnLoadPedidos');
+        const icon = btn.querySelector('i');
+        icon.classList.add('fa-spin'); // Animação de carregamento
+        
+        try {
+            if(window.carregarPedidosFirebase) {
+                const lista = await window.carregarPedidosFirebase();
+                renderPedidos(lista);
+            }
+        } catch(e) {
+            console.error(e);
+            alert("Erro ao baixar pedidos.");
+        } finally {
+            icon.classList.remove('fa-spin');
+        }
+    }
+
+    // --- INICIALIZAÇÃO E EVENTOS ---
+    
+    // Botão de carregar pedidos manualmente
+    document.getElementById('btnLoadPedidos').addEventListener('click', carregarPedidosNaTela);
+
+    // Botões de Produtos
+    document.getElementById('btnAdd').addEventListener('click', () => {
+      produtos.unshift({ id: newId(), nome: '', cat: 'aparelhos', preco: 0, desc: '', img: '' });
+      renderProdutosAdmin();
+      window.scrollTo(0, 300);
+    });
+    
+    document.getElementById('btnSave').addEventListener('click', saveProdutosToLS);
+    
+    document.getElementById('btnReset').addEventListener('click', () => {
+      if(confirm('Restaurar padrão?')) {
+        produtos = defaultProdutos.slice();
+        renderProdutosAdmin();
+        saveProdutosToLS();
+      }
+    });
+
+    // Botões de Promoções
+    document.getElementById('btnAddPromo').addEventListener('click', () => {
+      promocoes.unshift(""); 
+      renderPromocoesAdmin();
+    });
+    document.getElementById('btnSavePromo').addEventListener('click', savePromocoesToLS);
+    document.getElementById('btnResetPromo').addEventListener('click', () => {
+      if(confirm('Resetar promoções?')) {
+        promocoes = defaultPromocoes.slice();
+        renderPromocoesAdmin();
+        savePromocoesToLS();
+      }
+    });
+
+    // Botão Salvar Configurações (Pagamento/Whats)
+    document.getElementById('btnSavePay').addEventListener('click', () => {
+        pagamento.credito = document.getElementById('credito').value;
+        pagamento.whatsapp = document.getElementById('whatsapp').value;
+        savePagamentoToLS();
+    });
+
+    // Backup / Exportar
+    document.getElementById('btnExport').addEventListener('click', () => {
+      const data = {
+        produtos,
+        pagamento,
+        promocoes,
+        date: new Date().toISOString()
+      };
+      const blob = new Blob([JSON.stringify(data, null, 2)], {type : 'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'backup-loja-' + new Date().toISOString().split('T')[0] + '.json';
+      a.click();
+    });
+
+    // Importar Backup
+    document.getElementById('fileImport').addEventListener('change', (e) => {
+      const f = e.target.files?.[0];
+      if(!f) return;
+      const r = new FileReader();
+      r.onload = (evt) => {
+        try {
+          const d = JSON.parse(evt.target.result);
+          if(d.produtos) produtos = d.produtos;
+          if(d.pagamento) pagamento = d.pagamento;
+          if(d.promocoes) promocoes = d.promocoes;
+          
+          saveProdutosToLS();
+          savePagamentoToLS();
+          savePromocoesToLS();
+          
+          window.location.reload();
+        } catch(err){
+          alert('Arquivo inválido');
+        }
+      };
+      r.readAsText(f);
+    });
+
+    // FUNÇÃO GLOBAL DE CARREGAMENTO (Chamada após login)
+    window.carregarTudo = function() {
+        loadState();
+        renderProdutosAdmin();
+        renderPromocoesAdmin();
+        
+        // Preenche inputs de config
+        if(pagamento.credito) document.getElementById('credito').value = pagamento.credito;
+        if(pagamento.whatsapp) document.getElementById('whatsapp').value = pagamento.whatsapp;
+
+        // Tenta carregar pedidos automaticamente ao entrar
+        carregarPedidosNaTela();
+    };
+
+  </script>
+</body>
+</html>
   </script>
 
 </body>
