@@ -14,10 +14,10 @@
 
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 
-    <!-- Firebase SDK -->
+    <!-- Firebase SDK (Firestore) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, collection, getDocs, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, collection, getDocs, updateDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
 
         const firebaseConfig = {
@@ -34,22 +34,36 @@
         const analytics = getAnalytics(app);
         const db = getFirestore(app);
 
-        // Função para carregar pedidos
+        // Carrega pedidos (ordenado por data desc quando possível)
         async function carregarPedidos() {
             try {
-                const querySnapshot = await getDocs(collection(db, "pedidos"));
+                const q = query(collection(db, "pedidos"), orderBy("timestamp", "desc"));
+                const querySnapshot = await getDocs(q);
                 const pedidos = [];
-                querySnapshot.forEach((doc) => {
-                    pedidos.push({ id: doc.id, ...doc.data() });
-                });
+                querySnapshot.forEach((doc) => pedidos.push({ id: doc.id, ...doc.data() }));
                 return pedidos;
             } catch (e) {
-                console.error("Erro ao carregar pedidos: ", e);
-                return [];
+                // fallback (caso timestamp não exista/índice etc)
+                console.warn("Carregando pedidos sem orderBy (fallback):", e);
+                try {
+                    const querySnapshot = await getDocs(collection(db, "pedidos"));
+                    const pedidos = [];
+                    querySnapshot.forEach((doc) => pedidos.push({ id: doc.id, ...doc.data() }));
+                    // ordena no client se tiver timestamp
+                    pedidos.sort((a,b) => {
+                        const ta = a?.timestamp?.seconds ? a.timestamp.seconds*1000 : (typeof a.timestamp === 'number' ? a.timestamp : 0);
+                        const tb = b?.timestamp?.seconds ? b.timestamp.seconds*1000 : (typeof b.timestamp === 'number' ? b.timestamp : 0);
+                        return tb - ta;
+                    });
+                    return pedidos;
+                } catch (err) {
+                    console.error("Erro ao carregar pedidos: ", err);
+                    return [];
+                }
             }
         }
 
-        // Função para marcar pedido como atendido
+        // Marcar como atendido
         async function marcarAtendido(pedidoId) {
             try {
                 await updateDoc(doc(db, "pedidos", pedidoId), { status: "atendido" });
@@ -59,7 +73,7 @@
             }
         }
 
-        // Torne global para usar no JS
+        // Torne global
         window.carregarPedidos = carregarPedidos;
         window.marcarAtendido = marcarAtendido;
     </script>
@@ -150,7 +164,7 @@
         .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
         button, .btn {
             background: var(--accent); color: #000; border: none; border-radius: 8px;
-            padding: 12px 16px; font-weight: 700; cursor: pointer; font-size: 0.9rem;
+            padding: 12px 16px; font-weight: 700; cursor:pointer; font-size: 0.9rem;
             display: inline-flex; align-items: center; justify-content: center; gap: 6px;
             text-decoration: none; transition: 0.2s;
         }
@@ -266,7 +280,7 @@
         }
         .pedido-status.atendido { background: var(--accent); }
 
-        /* Install prompt (opcional) */
+        /* Install prompt */
         #installPrompt {
             display:none;
             position:fixed;
@@ -317,7 +331,11 @@
             <div class="hint">Gerencie produtos e configurações da loja.</div>
           </div>
         </div>
-        <a class="btn" href="./index.html" target="_blank" rel="noopener"><i class="fa-solid fa-up-right-from-square"></i> Ver Loja</a>
+
+        <!-- LINK DA LOJA (você edita depois) -->
+        <a class="btn" id="btnVerLoja" href="COLE_AQUI_O_LINK_DA_SUA_LOJA" target="_blank" rel="noopener">
+          <i class="fa-solid fa-up-right-from-square"></i> Ver Loja
+        </a>
       </div>
     </header>
 
@@ -333,12 +351,14 @@
       </section>
 
       <aside class="aside">
+        <!-- NOVO: COMPRAS/PEDIDOS (MOSTRA TODAS AS INFORMAÇÕES) -->
         <section class="card">
-          <h2><i class="fa-solid fa-shopping-cart"></i> Ver Pedidos</h2>
+          <h2><i class="fa-solid fa-receipt"></i> Compras Realizadas</h2>
           <div class="toolbar">
-            <button id="btnLoadPedidos"><i class="fa-solid fa-sync"></i> Carregar Pedidos</button>
+            <button id="btnLoadPedidos"><i class="fa-solid fa-sync"></i> Carregar Compras</button>
           </div>
           <div id="pedidosList"></div>
+          <div class="small" style="text-align:center;">Mostra os documentos da coleção <code>pedidos</code> do Firestore.</div>
         </section>
 
         <section class="card" style="margin-top:14px;">
@@ -396,7 +416,7 @@
     <div class="footer-note">Painel Admin Mobile • iPlay Store</div>
   </div>
 
-  <!-- Install prompt UI (opcional) -->
+  <!-- Install prompt UI -->
   <div id="installPrompt">
     <div style="color:#fff;font-weight:700">Instalar o app no seu dispositivo?</div>
     <div class="small">Funciona offline (cache) e abre como aplicativo.</div>
@@ -410,16 +430,28 @@
     // --- PWA: Service Worker registration compatível com /Admin-Iplay/ ---
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        // Seu manifest usa scope "/Admin-Iplay/", então registramos o SW nesse mesmo escopo.
         navigator.serviceWorker.register('/Admin-Iplay/sw.js')
           .then(() => console.log('Service Worker registrado'))
           .catch(err => console.warn('Erro registrando SW', err));
       });
     }
 
-    // --- PWA: Install prompt (opcional, melhora UX no Android/Chrome) ---
+    function isRunningStandalone(){
+      return (
+        window.matchMedia('(display-mode: standalone)').matches ||
+        window.navigator.standalone === true
+      );
+    }
+
+    // Se já está rodando como app, nunca mostra o banner
+    if (isRunningStandalone()) {
+      const el = document.getElementById('installPrompt');
+      if (el) el.style.display = 'none';
+    }
+
     let deferredPrompt = null;
     window.addEventListener('beforeinstallprompt', (e) => {
+      if (isRunningStandalone()) return;
       e.preventDefault();
       deferredPrompt = e;
       document.getElementById('installPrompt').style.display = 'block';
@@ -436,10 +468,15 @@
     document.getElementById('btnCancelInstall').addEventListener('click', () => {
       document.getElementById('installPrompt').style.display = 'none';
     });
+
+    window.addEventListener('appinstalled', () => {
+      deferredPrompt = null;
+      document.getElementById('installPrompt').style.display = 'none';
+    });
   </script>
 
   <script>
-    // --- LÓGICA DE LOGIN ---
+    // --- LÓGICA DE LOGIN (CORRIGIDA) ---
     const SENHA_CORRETA = "IPLAY6202";
 
     function checkLogin() {
@@ -461,8 +498,12 @@
       document.getElementById('mainContent').style.display = 'block';
     }
 
-    if (sessionStorage.getItem('iplay_auth') === 'true') showAdmin();
+    // Verifica se já logou nesta sessão
+    if (sessionStorage.getItem('iplay_auth') === 'true') {
+      showAdmin();
+    }
 
+    // Enter no campo senha
     document.getElementById('passwordInput').addEventListener('keypress', function (e) {
       if (e.key === 'Enter') checkLogin();
     });
@@ -834,41 +875,65 @@
       }
     }
 
-    // PEDIDOS
+    // PEDIDOS/COMPRAS
     const pedidosListEl = document.getElementById('pedidosList');
+
+    function fmtMoney(n){
+      const v = Number(n) || 0;
+      return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    function fmtDate(ts){
+      const ms = ts?.seconds ? ts.seconds * 1000 : (typeof ts === 'number' ? ts : (ts ? Date.parse(ts) : 0));
+      if (!ms) return '';
+      return new Date(ms).toLocaleString('pt-BR');
+    }
 
     function renderPedidos(pedidos) {
       pedidosListEl.innerHTML = '';
-      if (pedidos.length === 0) {
-        pedidosListEl.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">Nenhum pedido encontrado.</div>';
+      if (!pedidos || pedidos.length === 0) {
+        pedidosListEl.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">Nenhuma compra encontrada.</div>';
         return;
       }
+
       pedidos.forEach((p) => {
-        const status = p.status || 'pendente';
+        const status = (p.status || 'pendente').toLowerCase();
         const wrap = document.createElement('div');
         wrap.className = 'pedido-item';
+
+        const itensHtml = Array.isArray(p.itens) && p.itens.length
+          ? p.itens.map(i => {
+              const q = Number(i.quantidade) || 0;
+              const preco = Number(i.preco) || 0;
+              const nome = escapeHtml(i.nome || '');
+              return `<li>${q}x ${nome} — ${fmtMoney(preco * q)}</li>`;
+            }).join('')
+          : '<li>Sem itens</li>';
 
         wrap.innerHTML = `
           <div class="pedido-head">
             <div>
               <strong>${escapeHtml(p.nome || 'Cliente')}</strong>
-              <div class="pedido-info">${new Date(p.timestamp?.seconds * 1000 || p.timestamp || Date.now()).toLocaleString('pt-BR')}</div>
+              <div class="pedido-info">${escapeHtml(fmtDate(p.timestamp) || '')}</div>
+              <div class="pedido-info"><span class="badge">ID:</span> ${escapeHtml(p.id || '')}</div>
             </div>
-            <div class="pedido-status ${status}">${status.toUpperCase()}</div>
+            <div class="pedido-status ${status}">${escapeHtml(status.toUpperCase())}</div>
           </div>
-          <div>
+
+          <div style="display:grid; gap:6px;">
             <div><strong>Email:</strong> ${escapeHtml(p.email || '')}</div>
             <div><strong>Telefone:</strong> ${escapeHtml(p.telefone || '')}</div>
             <div><strong>Endereço:</strong> ${escapeHtml(p.endereco || '')}</div>
             <div><strong>Pagamento:</strong> ${escapeHtml(p.pagamento || '')}</div>
             <div><strong>Itens:</strong></div>
-            <ul style="margin:5px 0; padding-left:20px;">
-              ${p.itens?.map(i => `<li>${i.quantidade}x ${escapeHtml(i.nome)} - R$ ${(i.preco * i.quantidade).toLocaleString('pt-BR')}</li>`).join('') || '<li>Sem itens</li>'}
-            </ul>
-            <div><strong>Total:</strong> R$ ${(p.total || 0).toLocaleString('pt-BR')}</div>
+            <ul style="margin:5px 0; padding-left:20px;">${itensHtml}</ul>
+            <div><strong>Total:</strong> ${fmtMoney(p.total)}</div>
           </div>
+
           <div style="margin-top:10px;">
-            <button class="secondary" onclick="marcarAtendido('${p.id}')"><i class="fa-solid fa-check"></i> Marcar Atendido</button>
+            <button class="secondary" type="button" onclick="marcarAtendido('${escapeAttr(p.id)}')">
+              <i class="fa-solid fa-check"></i> Marcar Atendido
+            </button>
           </div>
         `;
 
@@ -876,7 +941,28 @@
       });
     }
 
-    // UI Buttons - Produtos
+    // UI Buttons
+    document.getElementById('btnLoadPedidos').addEventListener('click', async () => {
+      const pedidos = await carregarPedidos();
+      renderPedidos(pedidos);
+    });
+
+    // --- INIT dos dados do admin (produtos/pagamento/promo) ---
+    loadState();
+    renderProdutosAdmin();
+    renderPromocoesAdmin();
+
+    document.getElementById('pix').value = pagamento.pix || '';
+    document.getElementById('credito').value = pagamento.credito || '';
+    document.getElementById('debito').value = pagamento.debito || '';
+    document.getElementById('whatsapp').value = pagamento.whatsapp || '';
+
+    // (opcional) auto-carregar compras ao abrir
+    // document.getElementById('btnLoadPedidos').click();
+  </script>
+
+  <script>
+    // Ações UI Produtos / Promo / Backup / Pagamento (mantidas)
     document.getElementById('btnAdd').addEventListener('click', () => {
       produtos.push({ id: newId(), nome: 'Novo Item', cat: 'aparelhos', preco: 0, desc: '', img: '', featured: false });
       renderProdutosAdmin();
@@ -893,13 +979,6 @@
       }
     });
 
-    // UI Buttons - Pedidos
-    document.getElementById('btnLoadPedidos').addEventListener('click', async () => {
-      const pedidos = await carregarPedidos();
-      renderPedidos(pedidos);
-    });
-
-    // UI Buttons - Pagamento
     document.getElementById('btnSavePay').addEventListener('click', () => {
       pagamento.pix = document.getElementById('pix').value;
       pagamento.credito = document.getElementById('credito').value;
@@ -908,7 +987,6 @@
       savePagamentoToLS();
     });
 
-    // UI Buttons - Promoções
     document.getElementById('btnAddPromo').addEventListener('click', () => {
       promocoes.push('');
       renderPromocoesAdmin();
@@ -925,7 +1003,6 @@
       }
     });
 
-    // Backup
     document.getElementById('btnExport').addEventListener('click', () => {
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ produtos, pagamento, promocoes }));
       const a = document.createElement('a');
@@ -963,16 +1040,7 @@
       }
       e.target.value = '';
     });
-
-    // Init
-    loadState();
-    renderProdutosAdmin();
-    renderPromocoesAdmin();
-
-    document.getElementById('pix').value = pagamento.pix || '';
-    document.getElementById('credito').value = pagamento.credito || '';
-    document.getElementById('debito').value = pagamento.debito || '';
-    document.getElementById('whatsapp').value = pagamento.whatsapp || '';
   </script>
+
 </body>
 </html>
