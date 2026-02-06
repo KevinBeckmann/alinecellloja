@@ -1111,11 +1111,9 @@
         renderProdutosAdmin();
         renderPromocoesAdmin();
 
-        document.getElementById('pix').value = pagamento.pix || '';
         document.getElementById('credito').value = pagamento.credito || '';
-        document.getElementById('debito').value = pagamento.debito || '';
         document.getElementById('whatsapp').value = pagamento.whatsapp || '';
-
+          
         saveProdutosToLS();
         savePagamentoToLS();
         savePromocoesToLS();
