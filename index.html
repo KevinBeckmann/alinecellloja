@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-    <title>iPlay Store - Painel do Administrador</title>
+    <title>iPlay Store - Painel do Administrador (Cloud)</title>
 
     <!-- PWA -->
     <link rel="manifest" href="./manifest.json">
@@ -14,10 +14,11 @@
 
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 
-       <!-- Firebase SDK (Com Autenticação e Firestore) -->
+    <!-- Firebase SDK (Com Autenticação e Firestore) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, collection, getDocs, updateDoc, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        // Importamos setDoc e getDoc para salvar configurações da loja
+        import { getFirestore, collection, getDocs, updateDoc, deleteDoc, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
         const firebaseConfig = {
@@ -34,13 +35,13 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
 
-        // --- SISTEMA DE LOGIN SEGURO ---
+        // --- SISTEMA DE LOGIN ---
         window.fazerLoginFirebase = async function(email, senha) {
             try {
                 await signInWithEmailAndPassword(auth, email, senha);
             } catch (error) {
                 console.error("Erro no login:", error);
-                throw error; // Joga o erro para ser tratado no botão
+                throw error;
             }
         }
 
@@ -53,73 +54,74 @@
             }
         }
 
-        // Monitora o estado da autenticação (Logado ou Não)
+        // Monitora autenticação
         onAuthStateChanged(auth, (user) => {
             const loginScreen = document.getElementById('loginScreen');
             const mainContent = document.getElementById('mainContent');
 
             if (user) {
-                // USUÁRIO LOGADO: Esconde login, mostra painel
                 if(loginScreen) loginScreen.style.display = 'none';
                 if(mainContent) mainContent.style.display = 'block';
                 
-                // Carrega os dados iniciais se a função existir
-                if(window.carregarTudo) window.carregarTudo();
+                // Carrega TUDO da nuvem ao logar
+                if(window.carregarTudoDaNuvem) window.carregarTudoDaNuvem();
                 
                 console.log("Admin logado:", user.email);
             } else {
-                // USUÁRIO DESLOGADO: Mostra login, esconde painel
                 if(loginScreen) loginScreen.style.display = 'flex';
                 if(mainContent) mainContent.style.display = 'none';
             }
         });
 
-        // --- FUNÇÕES DE PEDIDOS (BANCO DE DADOS) ---
+        // --- FUNÇÕES DE NUVEM (SALVAR/CARREGAR CONFIGS DA LOJA) ---
         
-        // 1. Carregar Pedidos (CORRIGIDO: Removemos orderBy do Firestore e fazemos via JS)
+        // Salvar dados genéricos (produtos, configs, promos)
+        window.salvarNaNuvem = async function(colecao, docId, dados) {
+            try {
+                await setDoc(doc(db, colecao, docId), dados);
+                return true;
+            } catch (e) {
+                console.error("Erro ao salvar:", e);
+                alert("Erro ao salvar no Firebase: " + e.message);
+                return false;
+            }
+        };
+
+        // Ler dados genéricos
+        window.lerDaNuvem = async function(colecao, docId) {
+            try {
+                const docSnap = await getDoc(doc(db, colecao, docId));
+                if (docSnap.exists()) return docSnap.data();
+                return null;
+            } catch (e) {
+                console.error("Erro ao ler:", e);
+                return null;
+            }
+        };
+
+        // --- FUNÇÕES DE PEDIDOS (JÁ EXISTENTES) ---
         window.carregarPedidosFirebase = async function() {
             try {
-                // Pega TODOS os documentos da coleção 'pedidos' sem filtrar
                 const snapshot = await getDocs(collection(db, "pedidos"));
-                
                 const lista = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                
-                console.log("Pedidos carregados do Firestore:", lista); // Log para debug
-
-                // Ordenação manual no Javascript (do mais novo para o mais antigo)
+                // Ordena por timestamp descrescente
                 return lista.sort((a,b) => {
-                    // Tenta usar o timestamp do firebase, se não tiver, usa 0
                     const ta = a?.timestamp?.seconds || 0;
                     const tb = b?.timestamp?.seconds || 0;
                     return tb - ta;
                 });
             } catch (e) {
-                console.error("Erro CRÍTICO ao buscar pedidos:", e);
-                alert("Erro ao buscar pedidos no banco de dados. Verifique o console.");
+                console.error("Erro buscar pedidos:", e);
                 return [];
             }
         };
 
-        // 2. Atualizar Status (Finalizar Pedido)
         window.atualizarStatusFirebase = async function(id, novoStatus) {
-            try {
-                await updateDoc(doc(db, "pedidos", id), { status: novoStatus });
-            } catch (e) {
-                console.error("Erro ao atualizar status:", e);
-                alert("Erro ao atualizar. Você está logado?");
-                throw e;
-            }
+            await updateDoc(doc(db, "pedidos", id), { status: novoStatus });
         };
         
-        // 3. Excluir Pedido
         window.excluirPedidoFirebase = async function(id) {
-            try {
-                await deleteDoc(doc(db, "pedidos", id));
-            } catch (e) {
-                console.error("Erro ao excluir:", e);
-                alert("Erro ao excluir. Verifique se você tem permissão.");
-                throw e;
-            }
+            await deleteDoc(doc(db, "pedidos", id));
         };
     </script>
 
@@ -275,10 +277,8 @@
             background: #fff;
         }
 
-        /* FIX: NÃO DEIXAR CADA CARD "STICKY" (isso causava sobreposição) */
         .aside .card { position: static; }
 
-        /* Se quiser a coluna direita "fixa" no desktop, sticky no ASIDE inteiro (não nos cards) */
         @media (min-width: 901px) {
             .aside {
                 position: sticky;
@@ -294,15 +294,12 @@
         @media (max-width: 900px) {
             .container { grid-template-columns: 1fr; padding: 0 15px; margin-top: 15px; }
             .product-grid { grid-template-columns: 1fr; }
-
             .header-container { padding: 10px 15px; flex-direction: column; align-items: stretch; gap: 12px; }
             .header-container .btn { width: 100%; }
             .title { font-size: 1rem; }
             .hint { display: none; }
-
             .toolbar button, .toolbar label.btn { flex: 1; padding: 14px; text-align: center; }
             .head-actions button { padding: 8px 12px; }
-
             .two-cols { grid-template-columns: 1fr; }
             .upload-actions .btn { width: 100%; }
             .img-preview { max-width: 100%; height: 200px; object-fit: contain; background: #222; }
@@ -325,27 +322,13 @@
         }
         .pedido-status.atendido { background: var(--accent); }
 
-        /* Install prompt */
         #installPrompt {
             display:none;
-            position:fixed;
-            bottom:20px;
-            left:50%;
-            transform:translateX(-50%);
-            z-index:11000;
-            background:var(--bg-card);
-            border:1px solid var(--border);
-            padding:12px;
-            border-radius:14px;
-            width:min(420px, calc(100% - 24px));
-            box-shadow:0 10px 24px rgba(0,0,0,0.4);
+            position:fixed; bottom:20px; left:50%; transform:translateX(-50%); z-index:11000;
+            background:var(--bg-card); border:1px solid var(--border); padding:12px;
+            border-radius:14px; width:min(420px, calc(100% - 24px)); box-shadow:0 10px 24px rgba(0,0,0,0.4);
         }
-        #installPrompt .row {
-            display:flex;
-            gap:10px;
-            justify-content:flex-end;
-            margin-top:10px;
-        }
+        #installPrompt .row { display:flex; gap:10px; justify-content:flex-end; margin-top:10px; }
         #installPrompt button { padding:10px 12px; }
     </style>
 </head>
@@ -375,9 +358,7 @@
             <div class="hint">Gerencie produtos e configurações da loja.</div>
           </div>
         </div>
-
-        <!-- LINK DA LOJA (você edita depois) -->
-        <a class="btn" id="btnVerLoja" href="COLE_AQUI_O_LINK_DA_SUA_LOJA" target="_blank" rel="noopener">
+        <a class="btn" id="btnVerLoja" href="index.html" target="_blank" rel="noopener">
           <i class="fa-solid fa-up-right-from-square"></i> Ver Loja
         </a>
       </div>
@@ -385,24 +366,22 @@
 
     <main class="container">
       <section class="card">
-        <h2><i class="fa-solid fa-box"></i> Gerenciar Produtos</h2>
+        <h2><i class="fa-solid fa-box"></i> Gerenciar Produtos (Nuvem)</h2>
         <div class="toolbar">
           <button id="btnAdd"><i class="fa-solid fa-plus"></i> Adicionar</button>
           <button id="btnSave"><i class="fa-solid fa-floppy-disk"></i> Salvar Tudo</button>
-          <button id="btnReset" class="secondary"><i class="fa-solid fa-rotate-left"></i> Resetar</button>
+          <button id="btnReload" class="secondary"><i class="fa-solid fa-sync"></i> Recarregar</button>
         </div>
         <div id="productsList" class="list"></div>
       </section>
 
       <aside class="aside">
-        <!-- NOVO: COMPRAS/PEDIDOS (MOSTRA TODAS AS INFORMAÇÕES) -->
         <section class="card">
           <h2><i class="fa-solid fa-receipt"></i> Compras Realizadas</h2>
           <div class="toolbar">
             <button id="btnLoadPedidos"><i class="fa-solid fa-sync"></i> Carregar Compras</button>
           </div>
           <div id="pedidosList"></div>
-          <div class="small" style="text-align:center;">Mostra os documentos da coleção <code>pedidos</code> do Firestore.</div>
         </section>
 
         <section class="card" style="margin-top:14px;">
@@ -410,48 +389,28 @@
           <div class="toolbar">
             <button id="btnAddPromo"><i class="fa-solid fa-plus"></i> Adicionar</button>
             <button id="btnSavePromo"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
-            <button id="btnResetPromo" class="secondary"><i class="fa-solid fa-rotate-left"></i> Resetar</button>
           </div>
           <div id="promocoesList"></div>
-          <div class="small" style="text-align:center;">Salva em <b>localStorage</b> na chave <code>iplay.promocoes</code></div>
-        </section>
-
-                <section class="card" style="margin-top:14px;">
-          <h2><i class="fa-solid fa-credit-card"></i> Pagamento</h2>
-          <div class="field">
-            <label for="credito" style="color:var(--accent);">Link de Pagamento (Mercado Pago)</label>
-            <input id="credito" type="url" placeholder="Cole aqui seu link de pagamento...">
-            <small style="color:#777; font-size:0.75rem;">Este link único será usado para todos os pedidos.</small>
-          </div>
-          <!-- O campo PIX e Débito foram removidos para simplificar -->
         </section>
 
         <section class="card" style="margin-top:14px;">
-          <h2><i class="fa-brands fa-whatsapp"></i> WhatsApp</h2>
+          <h2><i class="fa-solid fa-credit-card"></i> Pagamento & Contato</h2>
           <div class="field">
-            <label for="whatsapp">Número (somente números, com DDD)</label>
+            <label for="credito" style="color:var(--accent);">Link de Pagamento (Mercado Pago)</label>
+            <input id="credito" type="url" placeholder="Cole aqui seu link de pagamento...">
+          </div>
+           <div class="field">
+            <label for="whatsapp">WhatsApp (com DDD)</label>
             <input id="whatsapp" type="tel" placeholder="5599999999999">
           </div>
           <div class="toolbar" style="margin-top:10px">
             <button id="btnSavePay" style="width:100%"><i class="fa-solid fa-floppy-disk"></i> Salvar Configurações</button>
           </div>
         </section>
-
-        <section class="card" style="margin-top:14px;">
-          <h2><i class="fa-solid fa-file-export"></i> Backup</h2>
-          <div class="toolbar" style="flex-direction: column;">
-            <button id="btnExport" class="secondary" style="width:100%"><i class="fa-solid fa-download"></i> Baixar Backup</button>
-            <label class="btn secondary" for="fileImport" style="width:100%; cursor: pointer;">
-              <i class="fa-solid fa-upload"></i> Restaurar Backup
-              <input id="fileImport" type="file" accept="application/json" style="display:none;">
-            </label>
-          </div>
-          <div class="small" style="text-align: center;">Salva produtos, promoções e configs em arquivo JSON.</div>
-        </section>
       </aside>
     </main>
 
-    <div class="footer-note">Painel Admin Mobile • iPlay Store</div>
+    <div class="footer-note">Painel Admin Cloud • iPlay Store</div>
   </div>
 
   <!-- Install prompt UI -->
@@ -465,23 +424,16 @@
   </div>
 
   <script>
-    // --- PWA: Service Worker registration compatível com /Admin-Iplay/ ---
+    // --- PWA START ---
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/Admin-Iplay/sw.js')
-          .then(() => console.log('Service Worker registrado'))
-          .catch(err => console.warn('Erro registrando SW', err));
+        navigator.serviceWorker.register('/Admin-Iplay/sw.js').catch(() => {});
       });
     }
 
     function isRunningStandalone(){
-      return (
-        window.matchMedia('(display-mode: standalone)').matches ||
-        window.navigator.standalone === true
-      );
+      return (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true);
     }
-
-    // Se já está rodando como app, nunca mostra o banner
     if (isRunningStandalone()) {
       const el = document.getElementById('installPrompt');
       if (el) el.style.display = 'none';
@@ -499,155 +451,116 @@
       document.getElementById('installPrompt').style.display = 'none';
       if (!deferredPrompt) return;
       deferredPrompt.prompt();
-      await deferredPrompt.userChoice;
       deferredPrompt = null;
     });
 
     document.getElementById('btnCancelInstall').addEventListener('click', () => {
       document.getElementById('installPrompt').style.display = 'none';
     });
-
-    window.addEventListener('appinstalled', () => {
-      deferredPrompt = null;
-      document.getElementById('installPrompt').style.display = 'none';
-    });
+    // --- PWA END ---
   </script>
 
   <script>
-        // --- 1. AUTENTICAÇÃO REAL (Firebase) ---
-    async function loginReal() {
-        const email = document.getElementById('emailInput').value; // Pega o email
-        const pass = document.getElementById('passInput').value;   // Pega a senha
-        const msg = document.getElementById('loginMsg');
-        
-        // Feedback visual "Carregando..."
-        if(msg) {
-            msg.style.display = 'block';
-            msg.innerText = "Entrando...";
-            msg.style.color = "#ccc";
-        }
-
-        try {
-            // Chama a função de login do Firebase que criamos lá em cima
-            if (window.fazerLoginFirebase) {
-                await window.fazerLoginFirebase(email, pass);
-            } else {
-                alert("Erro: Firebase não carregou. Recarregue a página.");
-            }
-            // Se der certo, o "onAuthStateChanged" lá de cima vai liberar a tela sozinho.
-        } catch (error) {
-            // Se der erro, mostra mensagem vermelha
-            if(msg) {
-                msg.style.color = "#ff4444";
-                if(error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
-                    msg.innerText = "E-mail ou senha incorretos.";
-                } else if (error.code === 'auth/too-many-requests') {
-                    msg.innerText = "Muitas tentativas. Aguarde um pouco.";
-                } else {
-                    msg.innerText = "Erro ao entrar (" + error.code + ")";
-                }
-            }
-        }
-    }
-
-    // Suporte para tecla ENTER nos campos de login
-    document.getElementById('passInput').addEventListener('keypress', function (e) {
-        if (e.key === 'Enter') loginReal();
-    });
-      
-    // --- SISTEMA DO ADMIN ---
-    const LS_KEYS = {
-      produtos: 'iplay.produtos',
-      pagamento: 'iplay.pagamento',
-      promocoes: 'iplay.promocoes'
-    };
-
-    const defaultProdutos = [
-      { id: 1, nome: "iPhone 15 Pro Max", cat: "aparelhos", preco: 8299, desc: "1TB Titanium Natural", img: "https://images.unsplash.com/photo-1695822822491-d92cee704368?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.0.3", featured: false },
-      { id: 2, nome: "MacBook Pro M3", cat: "aparelhos", preco: 12599, desc: "512GB Space Black", img: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=500&q=80", featured: false },
-      { id: 3, nome: "MacBook Pro 16\"", cat: "aparelhos", preco: 14999, desc: "1TB Silver M3 Max", img: "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&w=500&q=80", featured: false },
-      { id: 4, nome: "AirPods Pro 2", cat: "fones", preco: 1899, desc: "USB-C MagSafe Case", img: "https://images.unsplash.com/photo-1588156979435-379b9d802b74?auto=format&fit=crop&w=400&q=80", featured: false },
-      { id: 5, nome: "Apple Watch Ultra 2", cat: "aparelhos", preco: 6299, desc: "Titanium Case 49mm", img: "https://images.unsplash.com/photo-1549439602-43ebca2327af?auto=format&fit=crop&w=400&q=80", featured: false },
-      { id: 6, nome: "Carregador MagSafe", cat: "carregadores", preco: 399, desc: "Original Apple 15W", img: "https://images.unsplash.com/photo-1583863788434-e58a36330cf0?auto=format&fit=crop&w=400&q=80", featured: false },
-      { id: 7, nome: "Apple Pencil 2", cat: "aparelhos", preco: 899, desc: "Magnética para iPad", img: "https://images.unsplash.com/photo-1557858310-9052820906f7?auto=format&fit=crop&w=400&q=80", featured: false },
-      { id: 8, nome: "HomePod Mini", cat: "aparelhos", preco: 799, desc: "Smart Speaker White", img: "https://images.unsplash.com/photo-1596558450255-7c0b7be9d56a?auto=format&fit=crop&w=400&q=80", featured: false }
-    ];
-
-       const defaultPagamento = {
-      credito: "", // Agora usamos apenas este campo para o Link Geral
-      whatsapp: ""
-    };
-
-    const defaultPromocoes = [
-      "https://images.unsplash.com/photo-1695822822491-d92cee704368?w=600&auto=format&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=500&q=80",
-      "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&w=500&q=80"
-    ];
-
+    // --- SCRIPT PRINCIPAL DO ADMIN ---
+    
+    // VARIÁVEIS DE ESTADO
     let produtos = [];
-    let pagamento = {};
+    let pagamento = { credito: "", whatsapp: "" };
     let promocoes = [];
 
-    function loadState() {
-      try {
-        const p = JSON.parse(localStorage.getItem(LS_KEYS.produtos) || 'null');
-        const pay = JSON.parse(localStorage.getItem(LS_KEYS.pagamento) || 'null');
-        const promo = JSON.parse(localStorage.getItem(LS_KEYS.promocoes) || 'null');
+    // PRODUTOS PADRÃO (SE BANCO ESTIVER VAZIO)
+    const defaultProdutos = [
+      { id: 1, nome: "iPhone 15 Pro Max", cat: "aparelhos", preco: 8299, desc: "1TB Titanium Natural", img: "https://images.unsplash.com/photo-1695822822491-d92cee704368?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.0.3", featured: false }
+    ];
 
-        produtos = Array.isArray(p) && p.length ? p : defaultProdutos.slice();
-        pagamento = pay && typeof pay === 'object' ? { ...defaultPagamento, ...pay } : { ...defaultPagamento };
-        promocoes = Array.isArray(promo) && promo.length ? promo : defaultPromocoes.slice();
-      } catch {
-        produtos = defaultProdutos.slice();
-        pagamento = { ...defaultPagamento };
-        promocoes = defaultPromocoes.slice();
-      }
+    // --- AUTENTICAÇÃO E LOGIN ---
+    async function loginReal() {
+        const email = document.getElementById('emailInput').value;
+        const pass = document.getElementById('passInput').value;
+        const msg = document.getElementById('loginMsg');
+        
+        if(msg) { msg.style.display = 'block'; msg.innerText = "Entrando..."; msg.style.color = "#ccc"; }
+
+        try {
+            if (window.fazerLoginFirebase) {
+                await window.fazerLoginFirebase(email, pass);
+            }
+        } catch (error) {
+            if(msg) {
+                msg.style.color = "#ff4444";
+                msg.innerText = "Erro ao entrar (" + error.code + ")";
+            }
+        }
     }
+    document.getElementById('passInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') loginReal(); });
+
+    // --- SALVAR E CARREGAR (AGORA USANDO FIREBASE) ---
 
     function toast(msg) {
       const t = document.createElement('div');
       t.textContent = msg;
       t.style.cssText = "position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.9); border:1px solid #6eea70; color:#fff; padding:12px 20px; border-radius:30px; z-index:10000;";
       document.body.appendChild(t);
-      setTimeout(() => t.remove(), 2000);
+      setTimeout(() => t.remove(), 2500);
     }
 
-    function saveProdutosToLS() {
-      try {
-        localStorage.setItem(LS_KEYS.produtos, JSON.stringify(produtos));
-        toast("Produtos salvos!");
-      } catch (err) {
-        console.error(err);
-        alert('Erro ao salvar. Espaço cheio? Tente usar imagens menores.');
-      }
+    async function saveProdutosToCloud() {
+      const btn = document.getElementById('btnSave');
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvando...';
+      
+      const sucesso = await window.salvarNaNuvem('loja_dados', 'produtos', { lista: produtos });
+      
+      if(sucesso) toast("Produtos salvos na Nuvem! A loja atualizará.");
+      else alert("Erro ao salvar produtos");
+      
+      btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Salvar Tudo';
     }
 
-    function savePagamentoToLS() {
-      try {
-        localStorage.setItem(LS_KEYS.pagamento, JSON.stringify(pagamento));
-        toast("Configurações salvas!");
-      } catch (err) {
-        alert('Erro ao salvar config.');
-      }
+    async function savePagamentoToCloud() {
+        pagamento.credito = document.getElementById('credito').value;
+        pagamento.whatsapp = document.getElementById('whatsapp').value;
+        const sucesso = await window.salvarNaNuvem('loja_dados', 'config', pagamento);
+        if(sucesso) toast("Configurações salvas!");
     }
 
-    function savePromocoesToLS() {
-      try {
-        promocoes = (promocoes || []).map(s => String(s || '').trim()).filter(Boolean);
-        localStorage.setItem(LS_KEYS.promocoes, JSON.stringify(promocoes));
-        toast("Promoções salvas!");
-      } catch (err) {
-        console.error(err);
-        alert('Erro ao salvar promoções. Espaço cheio? Use imagens menores.');
-      }
+    async function savePromocoesToCloud() {
+        const listaLimpa = promocoes.filter(p => p && p.trim() !== "");
+        const sucesso = await window.salvarNaNuvem('loja_dados', 'promocoes', { lista: listaLimpa });
+        if(sucesso) toast("Promoções salvas!");
     }
 
-    function escapeHtml(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-    function escapeAttr(s) { return String(s || '').replace(/"/g,'&quot;'); }
+    // --- CARREGAMENTO INICIAL ---
+    window.carregarTudoDaNuvem = async function() {
+        console.log("Baixando dados...");
 
-    // Compressor de imagem
+        // 1. Produtos
+        const dadosProd = await window.lerDaNuvem('loja_dados', 'produtos');
+        if(dadosProd && dadosProd.lista) produtos = dadosProd.lista;
+        else produtos = defaultProdutos.slice();
+        renderProdutosAdmin();
+
+        // 2. Configurações
+        const dadosConf = await window.lerDaNuvem('loja_dados', 'config');
+        if(dadosConf) {
+            pagamento = dadosConf;
+            if(pagamento.credito) document.getElementById('credito').value = pagamento.credito;
+            if(pagamento.whatsapp) document.getElementById('whatsapp').value = pagamento.whatsapp;
+        }
+
+        // 3. Promoções
+        const dadosPromo = await window.lerDaNuvem('loja_dados', 'promocoes');
+        if(dadosPromo && dadosPromo.lista) promocoes = dadosPromo.lista;
+        renderPromocoesAdmin();
+
+        // 4. Pedidos
+        carregarPedidosNaTela();
+    }
+
+    // --- RENDERIZAÇÃO E INTERFACE ---
+
+    // Compressor
     function fileToDataUrlCompressed(file, maxSize = 800, quality = 0.8) {
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve) => {
         const fr = new FileReader();
         fr.onload = () => {
           const img = new Image();
@@ -664,16 +577,17 @@
             ctx.drawImage(img, 0, 0, width, height);
             resolve(canvas.toDataURL('image/jpeg', quality));
           };
-          img.onerror = reject;
           img.src = fr.result;
         };
-        fr.onerror = reject;
         fr.readAsDataURL(file);
       });
     }
 
-    const productsListEl = document.getElementById('productsList');
+    function escapeHtml(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function escapeAttr(s) { return String(s || '').replace(/"/g,'&quot;'); }
     function newId() { return (produtos.reduce((m, p) => Math.max(m, Number(p.id) || 0), 0) || 0) + 1; }
+
+    const productsListEl = document.getElementById('productsList');
 
     function renderProdutosAdmin() {
       productsListEl.innerHTML = '';
@@ -699,12 +613,12 @@
           <div class="product-grid">
             <div>
               <div class="field">
-                <label>Nome do Produto</label>
-                <input data-field="nome" type="text" value="${escapeAttr(p.nome)}" placeholder="Ex: iPhone 15">
+                <label>Nome</label>
+                <input data-field="nome" type="text" value="${escapeAttr(p.nome)}" placeholder="iPhone 15">
               </div>
               <div class="field">
-                <label>Descrição Curta</label>
-                <input data-field="desc" type="text" value="${escapeAttr(p.desc || '')}" placeholder="Ex: 128GB Preto">
+                <label>Descrição</label>
+                <input data-field="desc" type="text" value="${escapeAttr(p.desc || '')}">
               </div>
               <div class="two-cols">
                 <div class="field">
@@ -728,12 +642,12 @@
 
             <div>
               <div class="field">
-                <label>Imagem</label>
+                <label>Imagem (URL)</label>
                 <div class="upload-row">
-                  <input data-field="img" type="url" value="${escapeAttr(p.img || '')}" placeholder="Link da imagem (URL)">
+                  <input data-field="img" type="url" value="${escapeAttr(p.img || '')}">
                   <div class="upload-actions">
                     <label class="btn secondary">
-                      <i class="fa-solid fa-camera"></i> Enviar Foto
+                      <i class="fa-solid fa-camera"></i>
                       <input type="file" accept="image/*" data-role="file" data-index="${idx}" style="display:none;">
                     </label>
                     <button class="secondary" type="button" data-action="clearImg"><i class="fa-solid fa-times"></i></button>
@@ -748,19 +662,10 @@
         wrap.addEventListener('input', onProductFieldChange);
         wrap.addEventListener('change', onProductFieldChange);
 
-        wrap.querySelector('[data-action="del"]').addEventListener('click', () => {
-          if (confirm('Deletar?')) { produtos.splice(idx, 1); renderProdutosAdmin(); }
-        });
-        wrap.querySelector('[data-action="dup"]').addEventListener('click', () => {
-          produtos.splice(idx + 1, 0, { ...produtos[idx], id: newId(), nome: (produtos[idx].nome || '') + ' (Cópia)' });
-          renderProdutosAdmin();
-        });
-        wrap.querySelector('[data-action="up"]').addEventListener('click', () => {
-          if (idx > 0) { const i = produtos.splice(idx, 1)[0]; produtos.splice(idx - 1, 0, i); renderProdutosAdmin(); }
-        });
-        wrap.querySelector('[data-action="down"]').addEventListener('click', () => {
-          if (idx < produtos.length - 1) { const i = produtos.splice(idx, 1)[0]; produtos.splice(idx + 1, 0, i); renderProdutosAdmin(); }
-        });
+        wrap.querySelector('[data-action="del"]').addEventListener('click', () => { if (confirm('Deletar?')) { produtos.splice(idx, 1); renderProdutosAdmin(); } });
+        wrap.querySelector('[data-action="dup"]').addEventListener('click', () => { produtos.splice(idx + 1, 0, { ...produtos[idx], id: newId(), nome: (produtos[idx].nome || '') + ' (Cópia)' }); renderProdutosAdmin(); });
+        wrap.querySelector('[data-action="up"]').addEventListener('click', () => { if (idx > 0) { const i = produtos.splice(idx, 1)[0]; produtos.splice(idx - 1, 0, i); renderProdutosAdmin(); } });
+        wrap.querySelector('[data-action="down"]').addEventListener('click', () => { if (idx < produtos.length - 1) { const i = produtos.splice(idx, 1)[0]; produtos.splice(idx + 1, 0, i); renderProdutosAdmin(); } });
 
         const fileInput = wrap.querySelector('input[type="file"]');
         const clearBtn = wrap.querySelector('[data-action="clearImg"]');
@@ -776,9 +681,7 @@
             urlInput.value = dataUrl;
             preview.src = dataUrl;
             preview.style.display = 'block';
-          } catch {
-            alert('Erro na imagem.');
-          }
+          } catch { alert('Erro na imagem.'); }
           e.target.value = '';
         });
 
@@ -792,21 +695,16 @@
         productsListEl.appendChild(wrap);
       });
 
-      if (produtos.length === 0) {
-        productsListEl.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">Sem produtos. Adicione um!</div>';
-      }
+      if (produtos.length === 0) productsListEl.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">Sem produtos. Adicione um!</div>';
     }
 
     function onProductFieldChange(e) {
       const idx = Number(e.target.closest('.product-item').dataset.index);
       const field = e.target.dataset.field;
       if (!field) return;
-
       let val = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
       if (field === 'preco') val = Number(val) || 0;
-
       produtos[idx][field] = val;
-
       if (field === 'nome') e.target.closest('.product-item').querySelector('.head-title strong').textContent = val;
       if (field === 'img') {
         const prev = e.target.closest('.product-item').querySelector('.img-preview');
@@ -816,352 +714,150 @@
 
     // PROMOÇÕES
     const promocoesListEl = document.getElementById('promocoesList');
-
     function renderPromocoesAdmin() {
       promocoesListEl.innerHTML = '';
-
       promocoes.forEach((p, idx) => {
         const wrap = document.createElement('div');
         wrap.className = 'promo-item';
         wrap.dataset.index = idx;
-
         wrap.innerHTML = `
           <div class="product-head">
             <div class="head-title"><strong>Promoção ${idx + 1}</strong></div>
             <div class="head-actions">
               <button class="secondary" data-action="up"><i class="fa-solid fa-arrow-up"></i></button>
-              <button class="secondary" data-action="down"><i class="fa-solid fa-arrow-down"></i></button>
               <button class="danger" data-action="delPromo"><i class="fa-solid fa-trash"></i></button>
             </div>
           </div>
-
           <div class="field">
-            <label>URL da Imagem (ou DataURL)</label>
             <input data-field="url" type="url" value="${escapeAttr(p || '')}" placeholder="https://...">
             <div class="upload-actions" style="margin-top:8px;">
               <label class="btn secondary">
-                <i class="fa-solid fa-camera"></i> Enviar Foto
+                <i class="fa-solid fa-camera"></i>
                 <input type="file" accept="image/*" data-role="promoFile" data-index="${idx}" style="display:none;">
               </label>
-              <button class="secondary" type="button" data-action="clearPromoImg">
-                <i class="fa-solid fa-times"></i>
-              </button>
             </div>
           </div>
-
-          <div>
-            <img class="promo-preview" src="${escapeAttr(p || '')}" alt="promo" ${p ? '' : 'style="display:none;"'}>
-          </div>
+          <img class="promo-preview" src="${escapeAttr(p || '')}" alt="promo" ${p ? '' : 'style="display:none;"'}>
         `;
 
         const urlInput = wrap.querySelector('input[data-field="url"]');
         const preview = wrap.querySelector('.promo-preview');
 
-        urlInput.addEventListener('input', () => {
-          promocoes[idx] = urlInput.value;
-          preview.src = urlInput.value;
-          preview.style.display = urlInput.value ? 'block' : 'none';
-        });
-
+        urlInput.addEventListener('input', () => { promocoes[idx] = urlInput.value; preview.src = urlInput.value; preview.style.display = urlInput.value ? 'block' : 'none'; });
         const fileInput = wrap.querySelector('input[data-role="promoFile"]');
         fileInput.addEventListener('change', async (e) => {
           const file = e.target.files?.[0];
           if (!file) return;
-
           try {
             const dataUrl = await fileToDataUrlCompressed(file, 1200, 0.85);
             promocoes[idx] = dataUrl;
             urlInput.value = dataUrl;
             preview.src = dataUrl;
             preview.style.display = 'block';
-            toast('Imagem da promoção carregada!');
-          } catch (err) {
-            console.error(err);
-            alert('Erro ao processar a imagem.');
-          }
+          } catch { alert('Erro ao processar imagem.'); }
           e.target.value = '';
         });
-
-        wrap.querySelector('[data-action="clearPromoImg"]').addEventListener('click', () => {
-          promocoes[idx] = '';
-          urlInput.value = '';
-          preview.src = '';
-          preview.style.display = 'none';
-        });
-
-        wrap.querySelector('[data-action="delPromo"]').addEventListener('click', () => {
-          if (confirm('Deletar promoção?')) {
-            promocoes.splice(idx, 1);
-            renderPromocoesAdmin();
-          }
-        });
-
-        wrap.querySelector('[data-action="up"]').addEventListener('click', () => {
-          if (idx > 0) {
-            const it = promocoes.splice(idx, 1)[0];
-            promocoes.splice(idx - 1, 0, it);
-            renderPromocoesAdmin();
-          }
-        });
-
-        wrap.querySelector('[data-action="down"]').addEventListener('click', () => {
-          if (idx < promocoes.length - 1) {
-            const it = promocoes.splice(idx, 1)[0];
-            promocoes.splice(idx + 1, 0, it);
-            renderPromocoesAdmin();
-          }
-        });
-
+        wrap.querySelector('[data-action="delPromo"]').addEventListener('click', () => { if (confirm('Deletar?')) { promocoes.splice(idx, 1); renderPromocoesAdmin(); } });
+        wrap.querySelector('[data-action="up"]').addEventListener('click', () => { if (idx > 0) { const it = promocoes.splice(idx, 1)[0]; promocoes.splice(idx - 1, 0, it); renderPromocoesAdmin(); } });
         promocoesListEl.appendChild(wrap);
       });
-
-      if (promocoes.length === 0) {
-        promocoesListEl.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">Sem promoções. Adicione uma!</div>';
-      }
+      if (promocoes.length === 0) promocoesListEl.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">Sem promoções.</div>';
     }
 
-    // PEDIDOS/COMPRAS
+    // PEDIDOS
     const pedidosListEl = document.getElementById('pedidosList');
-
-    function fmtMoney(n){
-      const v = Number(n) || 0;
-      return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    }
-
-    function fmtDate(ts){
-      const ms = ts?.seconds ? ts.seconds * 1000 : (typeof ts === 'number' ? ts : (ts ? Date.parse(ts) : 0));
-      if (!ms) return '';
-      return new Date(ms).toLocaleString('pt-BR');
-    }
-
-       function renderPedidos(pedidos) {
+    function fmtMoney(n){ return (Number(n)||0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+    
+    function renderPedidos(pedidosLista) {
       pedidosListEl.innerHTML = '';
-      
-      if (!pedidos || pedidos.length === 0) {
+      if (!pedidosLista || pedidosLista.length === 0) {
         pedidosListEl.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">Nenhuma compra encontrada.</div>';
         return;
       }
 
-      pedidos.forEach((p) => {
+      pedidosLista.forEach((p) => {
         const status = (p.status || 'pendente').toLowerCase();
-        
-        // Formatação de Data Melhorada
-        let dataFormatada = "Data desconhecida";
+        let dataFormatada = "";
         if (p.timestamp) {
-            const dateObj = p.timestamp.seconds ? new Date(p.timestamp.seconds * 1000) : new Date(p.timestamp);
-            const dia = String(dateObj.getDate()).padStart(2, '0');
-            const mes = String(dateObj.getMonth() + 1).padStart(2, '0');
-            const ano = dateObj.getFullYear();
-            const hora = String(dateObj.getHours()).padStart(2, '0');
-            const min = String(dateObj.getMinutes()).padStart(2, '0');
-            dataFormatada = `${dia}/${mes}/${ano} às ${hora}:${min}`;
+            const d = p.timestamp.seconds ? new Date(p.timestamp.seconds * 1000) : new Date(p.timestamp);
+            dataFormatada = d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
         }
 
         const wrap = document.createElement('div');
         wrap.className = 'pedido-item';
-        
-        // Estilo condicional para borda
-        const bordaCor = status === 'atendido' ? 'var(--accent)' : '#ffb700';
-        wrap.style.borderLeft = `4px solid ${bordaCor}`;
+        wrap.style.borderLeft = `4px solid ${status === 'atendido' ? '#6eea70' : '#ffb700'}`;
 
         const itensHtml = Array.isArray(p.itens) && p.itens.length
-          ? p.itens.map(i => {
-              const q = Number(i.quantidade) || 0;
-              const preco = Number(i.preco) || 0;
-              const nome = escapeHtml(i.nome || '');
-              return `<div style="display:flex; justify-content:space-between; border-bottom:1px solid #333; padding:4px 0;">
-                        <span>${q}x ${nome}</span>
-                        <span>${fmtMoney(preco * q)}</span>
-                      </div>`;
-            }).join('')
+          ? p.itens.map(i => `<div style="display:flex;justify-content:space-between;border-bottom:1px solid #333;padding:4px 0;"><span>${i.quantidade}x ${escapeHtml(i.nome)}</span><span>${fmtMoney(i.preco*i.quantidade)}</span></div>`).join('')
           : '<div>Sem itens</div>';
 
         wrap.innerHTML = `
           <div class="pedido-head" style="margin-bottom:10px;">
             <div>
               <strong style="font-size:1.1rem; color:#fff;">${escapeHtml(p.nome || 'Cliente')}</strong>
-              <div style="font-size:0.8rem; color:#888;">📅 ${dataFormatada}</div>
-              <div style="font-size:0.75rem; color:#666; margin-top:2px;">ID: ${escapeHtml(p.id)}</div>
+              <div style="font-size:0.8rem; color:#888;">${dataFormatada}</div>
             </div>
-            <div class="pedido-status ${status}" style="height:fit-content;">${escapeHtml(status.toUpperCase())}</div>
+            <div class="pedido-status ${status}">${escapeHtml(status.toUpperCase())}</div>
           </div>
-
           <div style="background:rgba(0,0,0,0.2); padding:10px; border-radius:8px; margin-bottom:10px;">
-            <div style="color:#ccc; font-size:0.9rem; margin-bottom:4px;"><i class="fa-solid fa-envelope"></i> ${escapeHtml(p.email || '-')}</div>
-            <div style="color:#ccc; font-size:0.9rem; margin-bottom:4px;"><i class="fa-brands fa-whatsapp"></i> ${escapeHtml(p.telefone || '-')}</div>
-            <div style="color:#ccc; font-size:0.9rem;"><i class="fa-solid fa-location-dot"></i> ${escapeHtml(p.endereco || '-')}</div>
+             <div style="font-size:0.9rem; color:#ccc;">${escapeHtml(p.email)}</div>
+             <div style="font-size:0.9rem; color:#ccc;">${escapeHtml(p.telefone)}</div>
           </div>
-
-          <div style="margin-bottom:10px;">
-            <strong style="color:var(--accent); font-size:0.9rem;">ITENS DO PEDIDO:</strong>
-            <div style="font-size:0.9rem; color:#ddd; margin-top:5px;">
-                ${itensHtml}
-            </div>
-          </div>
-
+          <div style="margin-bottom:10px;font-size:0.9rem;color:#ddd;">${itensHtml}</div>
           <div style="display:flex; justify-content:space-between; align-items:center; background:#000; padding:10px; border-radius:6px; margin-bottom:12px;">
-            <span style="color:#888;">Frete: ${p.frete_tipo || ''} (${fmtMoney(p.frete)})</span>
-            <span style="font-size:1.1rem; font-weight:bold; color:var(--accent);">Total: ${fmtMoney(p.total)}</span>
+            <span style="color:#888;">Total:</span>
+            <span style="font-size:1.1rem; font-weight:bold; color:var(--accent);">${fmtMoney(p.total)}</span>
           </div>
-          
-          <div style="background:#222; padding:8px; border-radius:6px; font-size:0.85rem; color:#aaa; margin-bottom:15px; text-align:center;">
-            Método de Pagamento: <strong style="color:#fff;">${escapeHtml(p.pagamento || '')}</strong>
-          </div>
-
           <div style="display:flex; gap:10px;">
-            ${status !== 'atendido' ? 
-                `<button class="secondary" style="flex:1; background:var(--accent); color:#000;" onclick="alternarStatus('${escapeAttr(p.id)}', '${status}')">
-                    <i class="fa-solid fa-check"></i> Finalizar
-                 </button>` : 
-                `<button class="secondary" style="flex:1; opacity:0.5; cursor:not-allowed;" disabled>
-                    <i class="fa-solid fa-check-double"></i> Concluído
-                 </button>`
-            }
-            
-            <button class="danger" style="width:auto; padding:0 15px;" onclick="deletarPedido('${escapeAttr(p.id)}')">
-                <i class="fa-solid fa-trash"></i>
-            </button>
+             <button class="secondary" style="flex:1;" onclick="window.alternarStatus('${p.id}', '${status}')">
+                <i class="fa-solid fa-check"></i> ${status==='pendente'?'Finalizar':'Reabrir'}
+             </button>
+             <button class="danger" onclick="window.deletarPedido('${p.id}')"><i class="fa-solid fa-trash"></i></button>
           </div>
         `;
-
         pedidosListEl.appendChild(wrap);
       });
     }
 
-    // --- AÇÕES DOS PEDIDOS ---
-    window.alternarStatus = async function(id, statusAtual) {
-      if(!confirm('Alterar status do pedido?')) return;
-      try {
-        const novo = statusAtual === 'pendente' ? 'atendido' : 'pendente';
-        await window.atualizarStatusFirebase(id, novo);
-        toast('Status atualizado!');
-        carregarPedidosNaTela(); // Recarrega a lista
-      } catch(e) { console.error(e); }
-    };
-
-    window.deletarPedido = async function(id) {
-      if(!confirm('Tem certeza? Isso apagará o pedido permanentemente.')) return;
-      try {
-        await window.excluirPedidoFirebase(id);
-        toast('Pedido excluído.');
-        carregarPedidosNaTela();
-      } catch(e) { console.error(e); }
-    };
-
     async function carregarPedidosNaTela() {
         const btn = document.getElementById('btnLoadPedidos');
-        const icon = btn.querySelector('i');
-        icon.classList.add('fa-spin'); // Animação de carregamento
-        
-        try {
-            if(window.carregarPedidosFirebase) {
-                const lista = await window.carregarPedidosFirebase();
-                renderPedidos(lista);
-            }
-        } catch(e) {
-            console.error(e);
-            alert("Erro ao baixar pedidos.");
-        } finally {
-            icon.classList.remove('fa-spin');
-        }
+        btn.querySelector('i').classList.add('fa-spin');
+        const lista = await window.carregarPedidosFirebase();
+        renderPedidos(lista);
+        btn.querySelector('i').classList.remove('fa-spin');
     }
 
-    // --- INICIALIZAÇÃO E EVENTOS ---
-    
-    // Botão de carregar pedidos manualmente
-    document.getElementById('btnLoadPedidos').addEventListener('click', carregarPedidosNaTela);
+    // Ações Globais de Pedido
+    window.alternarStatus = async function(id, st) {
+        if(!confirm('Alterar status?')) return;
+        const novo = st === 'pendente' ? 'atendido' : 'pendente';
+        await window.atualizarStatusFirebase(id, novo);
+        carregarPedidosNaTela();
+    };
+    window.deletarPedido = async function(id) {
+        if(!confirm('Apagar pedido?')) return;
+        await window.excluirPedidoFirebase(id);
+        carregarPedidosNaTela();
+    };
 
-    // Botões de Produtos
+    // --- EVENTOS ---
+    document.getElementById('btnLoadPedidos').addEventListener('click', carregarPedidosNaTela);
+    
     document.getElementById('btnAdd').addEventListener('click', () => {
       produtos.unshift({ id: newId(), nome: '', cat: 'aparelhos', preco: 0, desc: '', img: '' });
       renderProdutosAdmin();
       window.scrollTo(0, 300);
     });
+
+    document.getElementById('btnSave').addEventListener('click', saveProdutosToCloud);
+    document.getElementById('btnSavePay').addEventListener('click', savePagamentoToCloud);
+    document.getElementById('btnAddPromo').addEventListener('click', () => { promocoes.unshift(""); renderPromocoesAdmin(); });
+    document.getElementById('btnSavePromo').addEventListener('click', savePromocoesToCloud);
     
-    document.getElementById('btnSave').addEventListener('click', saveProdutosToLS);
-    
-    document.getElementById('btnReset').addEventListener('click', () => {
-      if(confirm('Restaurar padrão?')) {
-        produtos = defaultProdutos.slice();
-        renderProdutosAdmin();
-        saveProdutosToLS();
-      }
+    document.getElementById('btnReload').addEventListener('click', () => {
+        if(confirm('Recarregar da nuvem? (Mudanças não salvas serão perdidas)')) window.carregarTudoDaNuvem();
     });
 
-    // Botões de Promoções
-    document.getElementById('btnAddPromo').addEventListener('click', () => {
-      promocoes.unshift(""); 
-      renderPromocoesAdmin();
-    });
-    document.getElementById('btnSavePromo').addEventListener('click', savePromocoesToLS);
-    document.getElementById('btnResetPromo').addEventListener('click', () => {
-      if(confirm('Resetar promoções?')) {
-        promocoes = defaultPromocoes.slice();
-        renderPromocoesAdmin();
-        savePromocoesToLS();
-      }
-    });
-
-    // Botão Salvar Configurações (Pagamento/Whats)
-    document.getElementById('btnSavePay').addEventListener('click', () => {
-        pagamento.credito = document.getElementById('credito').value;
-        pagamento.whatsapp = document.getElementById('whatsapp').value;
-        savePagamentoToLS();
-    });
-
-    // Backup / Exportar
-    document.getElementById('btnExport').addEventListener('click', () => {
-      const data = {
-        produtos,
-        pagamento,
-        promocoes,
-        date: new Date().toISOString()
-      };
-      const blob = new Blob([JSON.stringify(data, null, 2)], {type : 'application/json'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'backup-loja-' + new Date().toISOString().split('T')[0] + '.json';
-      a.click();
-    });
-
-    // Importar Backup
-    document.getElementById('fileImport').addEventListener('change', (e) => {
-      const f = e.target.files?.[0];
-      if(!f) return;
-      const r = new FileReader();
-      r.onload = (evt) => {
-        try {
-          const d = JSON.parse(evt.target.result);
-          if(d.produtos) produtos = d.produtos;
-          if(d.pagamento) pagamento = d.pagamento;
-          if(d.promocoes) promocoes = d.promocoes;
-          
-          saveProdutosToLS();
-          savePagamentoToLS();
-          savePromocoesToLS();
-          
-          window.location.reload();
-        } catch(err){
-          alert('Arquivo inválido');
-        }
-      };
-      r.readAsText(f);
-    });
-
-    // FUNÇÃO GLOBAL DE CARREGAMENTO (Chamada após login)
-    window.carregarTudo = function() {
-        loadState();
-        renderProdutosAdmin();
-        renderPromocoesAdmin();
-        
-        // Preenche inputs de config
-        if(pagamento.credito) document.getElementById('credito').value = pagamento.credito;
-        if(pagamento.whatsapp) document.getElementById('whatsapp').value = pagamento.whatsapp;
-
-        // Tenta carregar pedidos automaticamente ao entrar
-        carregarPedidosNaTela();
-    };
   </script>
 </body>
 </html>
