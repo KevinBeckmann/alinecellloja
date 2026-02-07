@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-    <title>iPlay Store - Painel do Administrador (Cloud)</title>
+    <title>iPlay Store - Painel do Administrador</title>
 
     <!-- PWA -->
     <link rel="manifest" href="./manifest.json">
@@ -14,11 +14,10 @@
 
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 
-    <!-- Firebase SDK -->
+       <!-- Firebase SDK (Com Autenticação e Firestore) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        // Importamos setDoc e getDoc para salvar configurações da loja
-        import { getFirestore, collection, getDocs, updateDoc, deleteDoc, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, collection, getDocs, updateDoc, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
         const firebaseConfig = {
@@ -35,13 +34,13 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
 
-        // --- SISTEMA DE LOGIN ---
+        // --- SISTEMA DE LOGIN SEGURO ---
         window.fazerLoginFirebase = async function(email, senha) {
             try {
                 await signInWithEmailAndPassword(auth, email, senha);
             } catch (error) {
                 console.error("Erro no login:", error);
-                throw error;
+                throw error; // Joga o erro para ser tratado no botão
             }
         }
 
@@ -54,74 +53,73 @@
             }
         }
 
-        // Monitora autenticação
+        // Monitora o estado da autenticação (Logado ou Não)
         onAuthStateChanged(auth, (user) => {
             const loginScreen = document.getElementById('loginScreen');
             const mainContent = document.getElementById('mainContent');
 
             if (user) {
+                // USUÁRIO LOGADO: Esconde login, mostra painel
                 if(loginScreen) loginScreen.style.display = 'none';
                 if(mainContent) mainContent.style.display = 'block';
                 
-                // Carrega TUDO da nuvem ao logar
-                if(window.carregarTudoDaNuvem) window.carregarTudoDaNuvem();
+                // Carrega os dados iniciais se a função existir
+                if(window.carregarTudo) window.carregarTudo();
                 
                 console.log("Admin logado:", user.email);
             } else {
+                // USUÁRIO DESLOGADO: Mostra login, esconde painel
                 if(loginScreen) loginScreen.style.display = 'flex';
                 if(mainContent) mainContent.style.display = 'none';
             }
         });
 
-        // --- FUNÇÕES DE NUVEM (SALVAR/CARREGAR CONFIGS DA LOJA) ---
+        // --- FUNÇÕES DE PEDIDOS (BANCO DE DADOS) ---
         
-        // Salvar dados genéricos
-        window.salvarNaNuvem = async function(colecao, docId, dados) {
-            try {
-                await setDoc(doc(db, colecao, docId), dados);
-                return true;
-            } catch (e) {
-                console.error("Erro ao salvar:", e);
-                alert("Erro ao salvar no Firebase: " + e.message);
-                return false;
-            }
-        };
-
-        // Ler dados genéricos
-        window.lerDaNuvem = async function(colecao, docId) {
-            try {
-                const docSnap = await getDoc(doc(db, colecao, docId));
-                if (docSnap.exists()) return docSnap.data();
-                return null;
-            } catch (e) {
-                console.error("Erro ao ler:", e);
-                return null;
-            }
-        };
-
-        // --- FUNÇÕES DE PEDIDOS (JÁ EXISTENTES) ---
+        // 1. Carregar Pedidos (CORRIGIDO: Removemos orderBy do Firestore e fazemos via JS)
         window.carregarPedidosFirebase = async function() {
             try {
+                // Pega TODOS os documentos da coleção 'pedidos' sem filtrar
                 const snapshot = await getDocs(collection(db, "pedidos"));
+                
                 const lista = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                // Ordena por timestamp descrescente
+                
+                console.log("Pedidos carregados do Firestore:", lista); // Log para debug
+
+                // Ordenação manual no Javascript (do mais novo para o mais antigo)
                 return lista.sort((a,b) => {
+                    // Tenta usar o timestamp do firebase, se não tiver, usa 0
                     const ta = a?.timestamp?.seconds || 0;
                     const tb = b?.timestamp?.seconds || 0;
                     return tb - ta;
                 });
             } catch (e) {
-                console.error("Erro buscar pedidos:", e);
+                console.error("Erro CRÍTICO ao buscar pedidos:", e);
+                alert("Erro ao buscar pedidos no banco de dados. Verifique o console.");
                 return [];
             }
         };
 
+        // 2. Atualizar Status (Finalizar Pedido)
         window.atualizarStatusFirebase = async function(id, novoStatus) {
-            await updateDoc(doc(db, "pedidos", id), { status: novoStatus });
+            try {
+                await updateDoc(doc(db, "pedidos", id), { status: novoStatus });
+            } catch (e) {
+                console.error("Erro ao atualizar status:", e);
+                alert("Erro ao atualizar. Você está logado?");
+                throw e;
+            }
         };
         
+        // 3. Excluir Pedido
         window.excluirPedidoFirebase = async function(id) {
-            await deleteDoc(doc(db, "pedidos", id));
+            try {
+                await deleteDoc(doc(db, "pedidos", id));
+            } catch (e) {
+                console.error("Erro ao excluir:", e);
+                alert("Erro ao excluir. Verifique se você tem permissão.");
+                throw e;
+            }
         };
     </script>
 
@@ -147,7 +145,7 @@
             min-height: 100vh;
             background-image:
                 radial-gradient(circle at 50% 0%, rgba(20,24,30,0.9) 0%, rgba(8,9,11,1) 80%),
-                url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-27-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm-24-4c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM0 10c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm77 3c.552 0 1-.448 1-1s-.448-1-1-1-1 .448-1 1 .448 1 1 1zM50 0c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zm35 77c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM98 40c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM14 74c2.761 0 5-2.239 5-5s-2.239-5-5-5-5 2.239-5 5 2.239 5 5 5zM62 8c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM85 62c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM47 54c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM28 89c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM78 4c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM38 36c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM52 18c3.314 0 6-2.686 6-6s-2.686-6-6-6-6 2.686-6 6 2.686 6 6 6zM25 64c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM90 43c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM16 56c3.314 0 6-2.686 6-6s-2.686-6-6-6-6 2.686-6 6 2.686 6 6 6zM37 46c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM7 24c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM21 54c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM32 40c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM41 84c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM58 78c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM75 14c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM66 66c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM3 50c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM19 80c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM33 2c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zM87 34c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM13 26c3.314 0 6-2.686 6-6s-2.686-6-6-6-6 2.686-6 6 2.686 6 6 6zM1 1h1z' fill='%239C92AC' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E");
+                url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-27-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm-24-4c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM0 10c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm77 3c.552 0 1-.448 1-1s-.448-1-1-1-1 .448-1 1 .448 1 1 1zM50 0c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zm35 77c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM98 40c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM14 74c2.761 0 5-2.239 5-5s-2.239-5-5-5-5 2.239-5 5 2.239 5 5 5zM62 8c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM85 62c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM47 54c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM28 89c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM78 4c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM38 36c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM52 18c3.314 0 6-2.686 6-6s-2.686-6-6-6-6 2.686-6 6 2.686 6 6 6zM25 64c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM90 43c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM16 56c3.314 0 6-2.686 6-6s-2.686-6-6-6-6 2.686-6 6 2.686 6 6 6zM37 46c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM7 24c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM21 54c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM32 40c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM41 84c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM58 78c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM75 14c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM66 66c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM3 50c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM19 80c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM33 2c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zM87 34c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM13 26c3.314 0 6-2.686 6-6s-2.686-6-6-6-6 2.686-6 6 2.686 6 6 6z' fill='%239C92AC' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E");
             background-size: cover, 400px 400px;
         }
 
@@ -277,8 +275,10 @@
             background: #fff;
         }
 
+        /* FIX: NÃO DEIXAR CADA CARD "STICKY" (isso causava sobreposição) */
         .aside .card { position: static; }
 
+        /* Se quiser a coluna direita "fixa" no desktop, sticky no ASIDE inteiro (não nos cards) */
         @media (min-width: 901px) {
             .aside {
                 position: sticky;
@@ -294,12 +294,15 @@
         @media (max-width: 900px) {
             .container { grid-template-columns: 1fr; padding: 0 15px; margin-top: 15px; }
             .product-grid { grid-template-columns: 1fr; }
+
             .header-container { padding: 10px 15px; flex-direction: column; align-items: stretch; gap: 12px; }
             .header-container .btn { width: 100%; }
             .title { font-size: 1rem; }
             .hint { display: none; }
+
             .toolbar button, .toolbar label.btn { flex: 1; padding: 14px; text-align: center; }
             .head-actions button { padding: 8px 12px; }
+
             .two-cols { grid-template-columns: 1fr; }
             .upload-actions .btn { width: 100%; }
             .img-preview { max-width: 100%; height: 200px; object-fit: contain; background: #222; }
@@ -325,11 +328,24 @@
         /* Install prompt */
         #installPrompt {
             display:none;
-            position:fixed; bottom:20px; left:50%; transform:translateX(-50%); z-index:11000;
-            background:var(--bg-card); border:1px solid var(--border); padding:12px;
-            border-radius:14px; width:min(420px, calc(100% - 24px)); box-shadow:0 10px 24px rgba(0,0,0,0.4);
+            position:fixed;
+            bottom:20px;
+            left:50%;
+            transform:translateX(-50%);
+            z-index:11000;
+            background:var(--bg-card);
+            border:1px solid var(--border);
+            padding:12px;
+            border-radius:14px;
+            width:min(420px, calc(100% - 24px));
+            box-shadow:0 10px 24px rgba(0,0,0,0.4);
         }
-        #installPrompt .row { display:flex; gap:10px; justify-content:flex-end; margin-top:10px; }
+        #installPrompt .row {
+            display:flex;
+            gap:10px;
+            justify-content:flex-end;
+            margin-top:10px;
+        }
         #installPrompt button { padding:10px 12px; }
     </style>
 </head>
@@ -360,6 +376,7 @@
           </div>
         </div>
 
+        <!-- LINK DA LOJA (você edita depois) -->
         <a class="btn" id="btnVerLoja" href="COLE_AQUI_O_LINK_DA_SUA_LOJA" target="_blank" rel="noopener">
           <i class="fa-solid fa-up-right-from-square"></i> Ver Loja
         </a>
@@ -368,16 +385,17 @@
 
     <main class="container">
       <section class="card">
-        <h2><i class="fa-solid fa-box"></i> Gerenciar Produtos (Nuvem)</h2>
+        <h2><i class="fa-solid fa-box"></i> Gerenciar Produtos</h2>
         <div class="toolbar">
           <button id="btnAdd"><i class="fa-solid fa-plus"></i> Adicionar</button>
-          <button id="btnSave"><i class="fa-solid fa-floppy-disk"></i> Salvar Tudo (Nuvem)</button>
-          <button id="btnReload" class="secondary"><i class="fa-solid fa-sync"></i> Recarregar</button>
+          <button id="btnSave"><i class="fa-solid fa-floppy-disk"></i> Salvar Tudo</button>
+          <button id="btnReset" class="secondary"><i class="fa-solid fa-rotate-left"></i> Resetar</button>
         </div>
         <div id="productsList" class="list"></div>
       </section>
 
       <aside class="aside">
+        <!-- NOVO: COMPRAS/PEDIDOS (MOSTRA TODAS AS INFORMAÇÕES) -->
         <section class="card">
           <h2><i class="fa-solid fa-receipt"></i> Compras Realizadas</h2>
           <div class="toolbar">
@@ -391,18 +409,21 @@
           <h2><i class="fa-solid fa-images"></i> Promoções</h2>
           <div class="toolbar">
             <button id="btnAddPromo"><i class="fa-solid fa-plus"></i> Adicionar</button>
-            <button id="btnSavePromo"><i class="fa-solid fa-floppy-disk"></i> Salvar (Nuvem)</button>
+            <button id="btnSavePromo"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
+            <button id="btnResetPromo" class="secondary"><i class="fa-solid fa-rotate-left"></i> Resetar</button>
           </div>
           <div id="promocoesList"></div>
+          <div class="small" style="text-align:center;">Salva em <b>localStorage</b> na chave <code>iplay.promocoes</code></div>
         </section>
 
-        <section class="card" style="margin-top:14px;">
+                <section class="card" style="margin-top:14px;">
           <h2><i class="fa-solid fa-credit-card"></i> Pagamento</h2>
           <div class="field">
             <label for="credito" style="color:var(--accent);">Link de Pagamento (Mercado Pago)</label>
             <input id="credito" type="url" placeholder="Cole aqui seu link de pagamento...">
             <small style="color:#777; font-size:0.75rem;">Este link único será usado para todos os pedidos.</small>
           </div>
+          <!-- O campo PIX e Débito foram removidos para simplificar -->
         </section>
 
         <section class="card" style="margin-top:14px;">
@@ -417,15 +438,15 @@
         </section>
 
         <section class="card" style="margin-top:14px;">
-          <h2><i class="fa-solid fa-file-export"></i> Backup Manual</h2>
+          <h2><i class="fa-solid fa-file-export"></i> Backup</h2>
           <div class="toolbar" style="flex-direction: column;">
-            <button id="btnExport" class="secondary" style="width:100%"><i class="fa-solid fa-download"></i> Baixar Backup JSON</button>
+            <button id="btnExport" class="secondary" style="width:100%"><i class="fa-solid fa-download"></i> Baixar Backup</button>
             <label class="btn secondary" for="fileImport" style="width:100%; cursor: pointer;">
-              <i class="fa-solid fa-upload"></i> Restaurar Backup JSON
+              <i class="fa-solid fa-upload"></i> Restaurar Backup
               <input id="fileImport" type="file" accept="application/json" style="display:none;">
             </label>
           </div>
-          <div class="small" style="text-align: center;">Salva ou restaura um arquivo local do seu computador.</div>
+          <div class="small" style="text-align: center;">Salva produtos, promoções e configs em arquivo JSON.</div>
         </section>
       </aside>
     </main>
@@ -444,7 +465,7 @@
   </div>
 
   <script>
-    // --- PWA: Service Worker registration ---
+    // --- PWA: Service Worker registration compatível com /Admin-Iplay/ ---
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/Admin-Iplay/sw.js')
@@ -454,9 +475,13 @@
     }
 
     function isRunningStandalone(){
-      return (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true);
+      return (
+        window.matchMedia('(display-mode: standalone)').matches ||
+        window.navigator.standalone === true
+      );
     }
 
+    // Se já está rodando como app, nunca mostra o banner
     if (isRunningStandalone()) {
       const el = document.getElementById('installPrompt');
       if (el) el.style.display = 'none';
@@ -489,68 +514,94 @@
   </script>
 
   <script>
-    // --- VARIÁVEIS DE ESTADO ---
-    let produtos = [];
-    let pagamento = { credito: "", whatsapp: "" };
-    let promocoes = [];
-
-    const defaultProdutos = [
-      { id: 1, nome: "iPhone 15 Pro Max", cat: "aparelhos", preco: 8299, desc: "1TB Titanium Natural", img: "https://images.unsplash.com/photo-1695822822491-d92cee704368?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.0.3", featured: false }
-    ];
-    const defaultPromocoes = [
-        "https://images.unsplash.com/photo-1695822822491-d92cee704368?w=600&auto=format&fit=crop&q=80"
-    ];
-
-    // --- AUTENTICAÇÃO ---
+        // --- 1. AUTENTICAÇÃO REAL (Firebase) ---
     async function loginReal() {
-        const email = document.getElementById('emailInput').value;
-        const pass = document.getElementById('passInput').value;
+        const email = document.getElementById('emailInput').value; // Pega o email
+        const pass = document.getElementById('passInput').value;   // Pega a senha
         const msg = document.getElementById('loginMsg');
         
-        if(msg) { msg.style.display = 'block'; msg.innerText = "Entrando..."; msg.style.color = "#ccc"; }
+        // Feedback visual "Carregando..."
+        if(msg) {
+            msg.style.display = 'block';
+            msg.innerText = "Entrando...";
+            msg.style.color = "#ccc";
+        }
 
         try {
+            // Chama a função de login do Firebase que criamos lá em cima
             if (window.fazerLoginFirebase) {
                 await window.fazerLoginFirebase(email, pass);
+            } else {
+                alert("Erro: Firebase não carregou. Recarregue a página.");
             }
+            // Se der certo, o "onAuthStateChanged" lá de cima vai liberar a tela sozinho.
         } catch (error) {
+            // Se der erro, mostra mensagem vermelha
             if(msg) {
                 msg.style.color = "#ff4444";
-                msg.innerText = "Erro: " + error.code;
+                if(error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
+                    msg.innerText = "E-mail ou senha incorretos.";
+                } else if (error.code === 'auth/too-many-requests') {
+                    msg.innerText = "Muitas tentativas. Aguarde um pouco.";
+                } else {
+                    msg.innerText = "Erro ao entrar (" + error.code + ")";
+                }
             }
         }
     }
-    document.getElementById('passInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') loginReal(); });
 
+    // Suporte para tecla ENTER nos campos de login
+    document.getElementById('passInput').addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') loginReal();
+    });
+      
+    // --- SISTEMA DO ADMIN ---
+    const LS_KEYS = {
+      produtos: 'iplay.produtos',
+      pagamento: 'iplay.pagamento',
+      promocoes: 'iplay.promocoes'
+    };
 
-    // --- FUNÇÃO PARA CARREGAR TUDO DA NUVEM (SUBSTITUI LOADSTATE LOCAL) ---
-    window.carregarTudoDaNuvem = async function() {
-        console.log("Baixando dados...");
+    const defaultProdutos = [
+      { id: 1, nome: "iPhone 15 Pro Max", cat: "aparelhos", preco: 8299, desc: "1TB Titanium Natural", img: "https://images.unsplash.com/photo-1695822822491-d92cee704368?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.0.3", featured: false },
+      { id: 2, nome: "MacBook Pro M3", cat: "aparelhos", preco: 12599, desc: "512GB Space Black", img: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=500&q=80", featured: false },
+      { id: 3, nome: "MacBook Pro 16\"", cat: "aparelhos", preco: 14999, desc: "1TB Silver M3 Max", img: "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&w=500&q=80", featured: false },
+      { id: 4, nome: "AirPods Pro 2", cat: "fones", preco: 1899, desc: "USB-C MagSafe Case", img: "https://images.unsplash.com/photo-1588156979435-379b9d802b74?auto=format&fit=crop&w=400&q=80", featured: false },
+      { id: 5, nome: "Apple Watch Ultra 2", cat: "aparelhos", preco: 6299, desc: "Titanium Case 49mm", img: "https://images.unsplash.com/photo-1549439602-43ebca2327af?auto=format&fit=crop&w=400&q=80", featured: false },
+      { id: 6, nome: "Carregador MagSafe", cat: "carregadores", preco: 399, desc: "Original Apple 15W", img: "https://images.unsplash.com/photo-1583863788434-e58a36330cf0?auto=format&fit=crop&w=400&q=80", featured: false },
+      { id: 7, nome: "Apple Pencil 2", cat: "aparelhos", preco: 899, desc: "Magnética para iPad", img: "https://images.unsplash.com/photo-1557858310-9052820906f7?auto=format&fit=crop&w=400&q=80", featured: false },
+      { id: 8, nome: "HomePod Mini", cat: "aparelhos", preco: 799, desc: "Smart Speaker White", img: "https://images.unsplash.com/photo-1596558450255-7c0b7be9d56a?auto=format&fit=crop&w=400&q=80", featured: false }
+    ];
 
-        // 1. Produtos
-        const dadosProd = await window.lerDaNuvem('loja_dados', 'produtos');
-        if(dadosProd && dadosProd.lista) produtos = dadosProd.lista;
-        else produtos = defaultProdutos.slice();
-        renderProdutosAdmin();
+       const defaultPagamento = {
+      credito: "", // Agora usamos apenas este campo para o Link Geral
+      whatsapp: ""
+    };
 
-        // 2. Configurações
-        const dadosConf = await window.lerDaNuvem('loja_dados', 'config');
-        if(dadosConf) {
-            pagamento = dadosConf;
-            if(pagamento.credito) document.getElementById('credito').value = pagamento.credito;
-            if(pagamento.whatsapp) document.getElementById('whatsapp').value = pagamento.whatsapp;
-        } else {
-             pagamento = { credito: "", whatsapp: "" };
-        }
+    const defaultPromocoes = [
+      "https://images.unsplash.com/photo-1695822822491-d92cee704368?w=600&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=500&q=80",
+      "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&w=500&q=80"
+    ];
 
-        // 3. Promoções
-        const dadosPromo = await window.lerDaNuvem('loja_dados', 'promocoes');
-        if(dadosPromo && dadosPromo.lista) promocoes = dadosPromo.lista;
-        else promocoes = defaultPromocoes.slice();
-        renderPromocoesAdmin();
+    let produtos = [];
+    let pagamento = {};
+    let promocoes = [];
 
-        // 4. Pedidos
-        carregarPedidosNaTela();
+    function loadState() {
+      try {
+        const p = JSON.parse(localStorage.getItem(LS_KEYS.produtos) || 'null');
+        const pay = JSON.parse(localStorage.getItem(LS_KEYS.pagamento) || 'null');
+        const promo = JSON.parse(localStorage.getItem(LS_KEYS.promocoes) || 'null');
+
+        produtos = Array.isArray(p) && p.length ? p : defaultProdutos.slice();
+        pagamento = pay && typeof pay === 'object' ? { ...defaultPagamento, ...pay } : { ...defaultPagamento };
+        promocoes = Array.isArray(promo) && promo.length ? promo : defaultPromocoes.slice();
+      } catch {
+        produtos = defaultProdutos.slice();
+        pagamento = { ...defaultPagamento };
+        promocoes = defaultPromocoes.slice();
+      }
     }
 
     function toast(msg) {
@@ -558,33 +609,37 @@
       t.textContent = msg;
       t.style.cssText = "position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.9); border:1px solid #6eea70; color:#fff; padding:12px 20px; border-radius:30px; z-index:10000;";
       document.body.appendChild(t);
-      setTimeout(() => t.remove(), 2500);
+      setTimeout(() => t.remove(), 2000);
     }
 
-    // --- FUNÇÕES DE SALVAMENTO NA NUVEM (AGORA SALVA NO FIREBASE) ---
-    async function saveProdutosToCloud() {
-      const btn = document.getElementById('btnSave');
-      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvando...';
-      
-      const sucesso = await window.salvarNaNuvem('loja_dados', 'produtos', { lista: produtos });
-      
-      if(sucesso) toast("Produtos salvos na Nuvem! A loja atualizará.");
-      else alert("Erro ao salvar produtos");
-      
-      btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Salvar Tudo (Nuvem)';
+    function saveProdutosToLS() {
+      try {
+        localStorage.setItem(LS_KEYS.produtos, JSON.stringify(produtos));
+        toast("Produtos salvos!");
+      } catch (err) {
+        console.error(err);
+        alert('Erro ao salvar. Espaço cheio? Tente usar imagens menores.');
+      }
     }
 
-    async function savePagamentoToCloud() {
-        pagamento.credito = document.getElementById('credito').value;
-        pagamento.whatsapp = document.getElementById('whatsapp').value;
-        const sucesso = await window.salvarNaNuvem('loja_dados', 'config', pagamento);
-        if(sucesso) toast("Configurações salvas!");
+    function savePagamentoToLS() {
+      try {
+        localStorage.setItem(LS_KEYS.pagamento, JSON.stringify(pagamento));
+        toast("Configurações salvas!");
+      } catch (err) {
+        alert('Erro ao salvar config.');
+      }
     }
 
-    async function savePromocoesToCloud() {
-        const listaLimpa = promocoes.filter(p => p && p.trim() !== "");
-        const sucesso = await window.salvarNaNuvem('loja_dados', 'promocoes', { lista: listaLimpa });
-        if(sucesso) toast("Promoções salvas!");
+    function savePromocoesToLS() {
+      try {
+        promocoes = (promocoes || []).map(s => String(s || '').trim()).filter(Boolean);
+        localStorage.setItem(LS_KEYS.promocoes, JSON.stringify(promocoes));
+        toast("Promoções salvas!");
+      } catch (err) {
+        console.error(err);
+        alert('Erro ao salvar promoções. Espaço cheio? Use imagens menores.');
+      }
     }
 
     function escapeHtml(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -873,6 +928,12 @@
       return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     }
 
+    function fmtDate(ts){
+      const ms = ts?.seconds ? ts.seconds * 1000 : (typeof ts === 'number' ? ts : (ts ? Date.parse(ts) : 0));
+      if (!ms) return '';
+      return new Date(ms).toLocaleString('pt-BR');
+    }
+
        function renderPedidos(pedidos) {
       pedidosListEl.innerHTML = '';
       
@@ -884,7 +945,7 @@
       pedidos.forEach((p) => {
         const status = (p.status || 'pendente').toLowerCase();
         
-        // Formatação de Data
+        // Formatação de Data Melhorada
         let dataFormatada = "Data desconhecida";
         if (p.timestamp) {
             const dateObj = p.timestamp.seconds ? new Date(p.timestamp.seconds * 1000) : new Date(p.timestamp);
@@ -948,10 +1009,16 @@
           </div>
 
           <div style="display:flex; gap:10px;">
-             <button class="secondary" style="flex:1; background:var(--accent); color:#000;" onclick="window.alternarStatus('${escapeAttr(p.id)}', '${status}')">
-                <i class="fa-solid fa-check"></i> ${status==='pendente'?'Finalizar':'Reabrir'}
-             </button>
-            <button class="danger" style="width:auto; padding:0 15px;" onclick="window.deletarPedido('${escapeAttr(p.id)}')">
+            ${status !== 'atendido' ? 
+                `<button class="secondary" style="flex:1; background:var(--accent); color:#000;" onclick="alternarStatus('${escapeAttr(p.id)}', '${status}')">
+                    <i class="fa-solid fa-check"></i> Finalizar
+                 </button>` : 
+                `<button class="secondary" style="flex:1; opacity:0.5; cursor:not-allowed;" disabled>
+                    <i class="fa-solid fa-check-double"></i> Concluído
+                 </button>`
+            }
+            
+            <button class="danger" style="width:auto; padding:0 15px;" onclick="deletarPedido('${escapeAttr(p.id)}')">
                 <i class="fa-solid fa-trash"></i>
             </button>
           </div>
@@ -1003,18 +1070,22 @@
     
     // Botão de carregar pedidos manualmente
     document.getElementById('btnLoadPedidos').addEventListener('click', carregarPedidosNaTela);
-    
-    // Botões de Produtos (AGORA SALVAM NO FIREBASE)
+
+    // Botões de Produtos
     document.getElementById('btnAdd').addEventListener('click', () => {
       produtos.unshift({ id: newId(), nome: '', cat: 'aparelhos', preco: 0, desc: '', img: '' });
       renderProdutosAdmin();
       window.scrollTo(0, 300);
     });
     
-    document.getElementById('btnSave').addEventListener('click', saveProdutosToCloud);
+    document.getElementById('btnSave').addEventListener('click', saveProdutosToLS);
     
     document.getElementById('btnReset').addEventListener('click', () => {
-       if(confirm('Recarregar da nuvem? (Perderá alterações não salvas)')) window.carregarTudoDaNuvem();
+      if(confirm('Restaurar padrão?')) {
+        produtos = defaultProdutos.slice();
+        renderProdutosAdmin();
+        saveProdutosToLS();
+      }
     });
 
     // Botões de Promoções
@@ -1022,15 +1093,23 @@
       promocoes.unshift(""); 
       renderPromocoesAdmin();
     });
-    document.getElementById('btnSavePromo').addEventListener('click', savePromocoesToCloud);
+    document.getElementById('btnSavePromo').addEventListener('click', savePromocoesToLS);
     document.getElementById('btnResetPromo').addEventListener('click', () => {
-      if(confirm('Recarregar promoções da nuvem?')) window.carregarTudoDaNuvem();
+      if(confirm('Resetar promoções?')) {
+        promocoes = defaultPromocoes.slice();
+        renderPromocoesAdmin();
+        savePromocoesToLS();
+      }
     });
 
-    // Botão Salvar Configurações
-    document.getElementById('btnSavePay').addEventListener('click', savePagamentoToCloud);
+    // Botão Salvar Configurações (Pagamento/Whats)
+    document.getElementById('btnSavePay').addEventListener('click', () => {
+        pagamento.credito = document.getElementById('credito').value;
+        pagamento.whatsapp = document.getElementById('whatsapp').value;
+        savePagamentoToLS();
+    });
 
-    // Backup / Exportar (MANUAL - ARQUIVO JSON)
+    // Backup / Exportar
     document.getElementById('btnExport').addEventListener('click', () => {
       const data = {
         produtos,
@@ -1046,7 +1125,7 @@
       a.click();
     });
 
-    // Importar Backup (MANUAL)
+    // Importar Backup
     document.getElementById('fileImport').addEventListener('change', (e) => {
       const f = e.target.files?.[0];
       if(!f) return;
@@ -1058,12 +1137,11 @@
           if(d.pagamento) pagamento = d.pagamento;
           if(d.promocoes) promocoes = d.promocoes;
           
-          renderProdutosAdmin();
-          renderPromocoesAdmin();
-          if(pagamento.credito) document.getElementById('credito').value = pagamento.credito;
-          if(pagamento.whatsapp) document.getElementById('whatsapp').value = pagamento.whatsapp;
-
-          alert("Backup carregado na tela! Clique em 'Salvar Tudo (Nuvem)' para enviar para a loja.");
+          saveProdutosToLS();
+          savePagamentoToLS();
+          savePromocoesToLS();
+          
+          window.location.reload();
         } catch(err){
           alert('Arquivo inválido');
         }
@@ -1071,11 +1149,19 @@
       r.readAsText(f);
     });
 
-    // Botão Recarregar
-    document.getElementById('btnReload').addEventListener('click', () => {
-        if(confirm('Recarregar da nuvem? (Mudanças não salvas serão perdidas)')) window.carregarTudoDaNuvem();
-    });
+    // FUNÇÃO GLOBAL DE CARREGAMENTO (Chamada após login)
+    window.carregarTudo = function() {
+        loadState();
+        renderProdutosAdmin();
+        renderPromocoesAdmin();
+        
+        // Preenche inputs de config
+        if(pagamento.credito) document.getElementById('credito').value = pagamento.credito;
+        if(pagamento.whatsapp) document.getElementById('whatsapp').value = pagamento.whatsapp;
 
+        // Tenta carregar pedidos automaticamente ao entrar
+        carregarPedidosNaTela();
+    };
   </script>
 </body>
 </html>
