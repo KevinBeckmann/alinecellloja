@@ -434,7 +434,7 @@
             <button id="btnLoadPedidos"><i class="fa-solid fa-sync"></i> Carregar Compras</button>
           </div>
           <div id="pedidosList"></div>
-          <div class="small" style="text-align:center;">Mostra os documentos da coleção <code>pedidos</code> do Firestore.</div>
+          <div class="small" style="text-align:center;"> <code></code> </div>
         </section>
 
         <section class="card" style="margin-top:14px;">
@@ -445,7 +445,7 @@
             <button id="btnResetPromo" class="secondary"><i class="fa-solid fa-rotate-left"></i> Resetar</button>
           </div>
           <div id="promocoesList"></div>
-          <div class="small" style="text-align:center;">(Agora também salva no <b>Firestore</b> em <code>config/promocoes</code>)</div>
+          <div class="small" style="text-align:center;">(<b></b> <code></code>)</div>
         </section>
 
         <section class="card" style="margin-top:14px;">
@@ -453,7 +453,7 @@
           <div class="field">
             <label for="credito" style="color:var(--accent);">Link de Pagamento (Mercado Pago)</label>
             <input id="credito" type="url" placeholder="Cole aqui seu link de pagamento...">
-            <small style="color:#777; font-size:0.75rem;">Este link único será usado para todos os pedidos.</small>
+            <small style="color:#777; font-size:0.75rem;"></small>
           </div>
         </section>
 
@@ -466,7 +466,7 @@
           <div class="toolbar" style="margin-top:10px">
             <button id="btnSavePay" style="width:100%"><i class="fa-solid fa-floppy-disk"></i> Salvar Configurações</button>
           </div>
-          <div class="small" style="text-align:center;">(Agora também salva no <b>Firestore</b> em <code>config/pagamento</code>)</div>
+          <div class="small" style="text-align:center;"> <b></b> <code></code> </div>
         </section>
 
         <section class="card" style="margin-top:14px;">
@@ -478,7 +478,7 @@
               <input id="fileImport" type="file" accept="application/json" style="display:none;">
             </label>
           </div>
-          <div class="small" style="text-align: center;">Salva produtos, promoções e configs em arquivo JSON.</div>
+          <div class="small" style="text-align: center;"></div>
         </section>
       </aside>
     </main>
@@ -489,7 +489,7 @@
   <!-- Install prompt UI -->
   <div id="installPrompt">
     <div style="color:#fff;font-weight:700">Instalar o app no seu dispositivo?</div>
-    <div class="small">Funciona offline (cache) e abre como aplicativo.</div>
+    <div class="small"></div>
     <div class="row">
       <button id="btnCancelInstall" class="secondary" type="button">Depois</button>
       <button id="btnInstall" type="button">Instalar</button>
