@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head><meta charset="UTF-8"><title>Acesso Indisponível</title></head>
+<body style="background:#111; color:#fff; display:flex; justify-content:center; align-items:center; height:100vh; font-family:sans-serif;">
+    <div style="text-align:center;">
+        <h2>Serviço Inativo</h2>
+        <p>Entre em contato com o desenvolvedor.</p>
+    </div>
+</body>
+</html>
