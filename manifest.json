@@ -1,6 +1,6 @@
 {
-  "name": "iPlay Admin - Painel do Administrador",
-  "short_name": "iPlay Admin",
+  "name": "Aliencell Admin - Painel do Administrador",
+  "short_name": "Aliencell Admin",
   "description": "Gerencie produtos, promoções e pedidos da loja iPlay",
   "start_url": "/Admin-Iplay/index.html",
   "display": "standalone",
